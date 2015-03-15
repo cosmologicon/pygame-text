@@ -36,7 +36,9 @@ DEFAULT_OUTLINE_COLOR = "black"
 DEFAULT_SHADOW_COLOR = "black"
 OUTLINE_UNIT = 1 / 24
 SHADOW_UNIT = 1 / 18
-
+DEFAULT_TEXT_ALIGN = "left"  # left, center, or right
+DEFAULT_HORIZONTAL_ANCHOR = 0  # 0 = left, 0.5 = center, 1 = right
+DEFAULT_VERTICAL_ANCHOR = 0  # 0 = top, 0.5 = center, 1 = bottom
 
 _font_cache = {}
 def getfont(fontname, fontsize):
@@ -78,7 +80,9 @@ def wrap(text, fontname, fontsize, width=None, widthem=None):
 				text = text[a+1:]
 				a = (text + " ").index(" ")
 		if text:
-			lines.append(text)
+			lines.append(text[:a])
+			if text[a+1:]:
+				lines.append(text[a+1:])
 	return lines
 
 def _resolvecolor(color, default):
@@ -89,23 +93,28 @@ def _resolvecolor(color, default):
 
 _surf_cache = {}
 def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
-	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None):
+	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
+	textalign=None):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
+	if textalign is None: textalign = DEFAULT_TEXT_ALIGN
+	if textalign in ["left", "center", "right"]:
+		textalign = [0, 0.5, 1][["left", "center", "right"].index(textalign)]
 	color = _resolvecolor(color, DEFAULT_COLOR)
 	background = _resolvecolor(background, DEFAULT_BACKGROUND)
 	ocolor = None if owidth is None else _resolvecolor(ocolor, DEFAULT_OUTLINE_COLOR)
 	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
 	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
-	key = text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx
+	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
+		textalign)
 	if key in _surf_cache: return _surf_cache[key]
 	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
 	if spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias)
+			background=(0,0,0,0), antialias=antialias, textalign=textalign)
 		ssurf = getsurf(text, fontname, fontsize, width, widthem, color=scolor,
-			background=(0,0,0,0), antialias=antialias)
+			background=(0,0,0,0), antialias=antialias, textalign=textalign)
 		w0, h0 = surf0.get_size()
 		sx, sy = spx
 		surf = pygame.Surface((w0 + abs(sx), h0 + abs(sy))).convert_alpha()
@@ -115,9 +124,9 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		surf.blit(surf0, (abs(sx) - dx, abs(sy) - dy))
 	elif opx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias)
+			background=(0,0,0,0), antialias=antialias, textalign=textalign)
 		osurf = getsurf(text, fontname, fontsize, width, widthem, color=ocolor,
-			background=(0,0,0,0), antialias=antialias)
+			background=(0,0,0,0), antialias=antialias, textalign=textalign)
 		w0, h0 = surf0.get_size()
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
 		surf.fill(background or (0, 0, 0, 0))
@@ -141,21 +150,66 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 			surf.fill(background or (0, 0, 0, 0))
 			y = 0
 			for lsurf in lsurfs:
-				surf.blit(lsurf, (0, y))
+				x = int(round(textalign * (w - lsurf.get_width())))
+				surf.blit(lsurf, (x, y))
 				y += lsurf.get_height()
 	_surf_cache[key] = surf
 	return surf
 
+def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, widthem=None,
+	color=None, background=None, antialias=True,
+	ocolor=None, owidth=None, scolor=None, shadow=None,
+	top=None, left=None, bottom=None, right=None,
+	topleft=None, bottomleft=None, topright=None, bottomright=None,
+	midtop=None, midleft=None, midbottom=None, midright=None,
+	center=None, centerx=None, centery=None,
+	textalign=None):
+	
+	if topleft: top, left = topleft
+	if bottomleft: bottom, left = bottomleft
+	if topright: top, right = topright
+	if bottomright: bottom, right = bottomright
+	if midtop: centerx, top = midtop
+	if midleft: left, centery = midleft
+	if midbottom: centerx, bottom = midbottom
+	if midright: right, centery = midright
+	if center: centerx, centery = center
+
+	hanchor, vanchor = None, None
+	x, y = pos or (None, None)
+	if left is not None: x, hanchor = left, 0
+	if centerx is not None: x, hanchor = centerx, 0.5
+	if right is not None: x, hanchor = right, 1
+	if top is not None: y, vanchor = top, 0
+	if centery is not None: y, vanchor = centery, 0.5
+	if bottom is not None: y, vanchor = bottom, 1
+	if x is None:
+		raise ValueError("Unable to determine horizontal position")
+	if y is None:
+		raise ValueError("Unable to determine vertical position")
+
+	if textalign is None: textalign = hanchor
+	if hanchor is None: hanchor = DEFAULT_HORIZONTAL_ANCHOR
+	if vanchor is None: vanchor = DEFAULT_VERTICAL_ANCHOR
+
+	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
+		ocolor, owidth, scolor, shadow,	textalign)
+	x = int(round(x - hanchor * tsurf.get_width()))
+	y = int(round(y - vanchor * tsurf.get_height()))
+
+	if surf is None: surf = pygame.display.get_surface()
+	surf.blit(tsurf, (x, y))
+
 if __name__ == "__main__":
 	pygame.font.init()
 	screen = pygame.display.set_mode((854, 480))
-	screen.fill((0, 100, 0))
+	screen.fill((0, 30, 0))
 	FONT_NAME_TEMPLATE = "fonts/%s.ttf"
 	DEFAULT_FONT_NAME = "Tangerine_Regular"
 	DEFAULT_FONT_SIZE = 60
-	screen.blit(getsurf("pbpb", fontname="CherryCreamSoda", owidth=1), (400, 120))
-	screen.blit(getsurf("ppp\nbbb\nppp\nbbb", shadow=(0.2,0.2)), (100, 100))
-	screen.blit(getsurf("bbb\nppp\nbbb\nppp"), (190, 100))
+	draw("ppp\nbbb\nppp\nbbb", (100, 100), shadow=(0.2,0.2))
+	draw("bbb\nppp\nbbb\nppp", (190, 100))
+	draw("displaying a font", fontname="PinyonScript-Regular", width=20, midtop=(450,100), textalign="right")
 	pygame.display.flip()
 	while not any(event.type in (pygame.KEYDOWN, pygame.QUIT) for event in pygame.event.get()):
 		pass
