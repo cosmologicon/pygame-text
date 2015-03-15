@@ -21,6 +21,9 @@
 
 # Wordwrap occurs anywhere text contains \n characters. It will also wrap f
 
+from __future__ import division
+
+from math import ceil
 import pygame
 
 DEFAULT_FONT_SIZE = 18
@@ -29,6 +32,10 @@ DEFAULT_FONT_NAME = None
 FONT_NAME_TEMPLATE = "%s"
 DEFAULT_COLOR = "white"
 DEFAULT_BACKGROUND = None
+DEFAULT_OUTLINE_COLOR = "black"
+DEFAULT_SHADOW_COLOR = "black"
+OUTLINE_UNIT = 1 / 24
+SHADOW_UNIT = 1 / 18
 
 
 _font_cache = {}
@@ -82,31 +89,60 @@ def _resolvecolor(color, default):
 
 _surf_cache = {}
 def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
-	background=None, antialias=True):
+	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
 	color = _resolvecolor(color, DEFAULT_COLOR)
 	background = _resolvecolor(background, DEFAULT_BACKGROUND)
-	key = text, fontname, fontsize, width, widthem, color, background, antialias
+	ocolor = None if owidth is None else _resolvecolor(ocolor, DEFAULT_OUTLINE_COLOR)
+	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
+	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
+	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
+	key = text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx
 	if key in _surf_cache: return _surf_cache[key]
 	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
-	font = getfont(fontname, fontsize)
-	# pygame.Font.render does not allow passing None as an argument value for background.
-	if background is None:
-		lsurfs = [font.render(text, antialias, color).convert_alpha() for text in texts]
-	else:
-		lsurfs = [font.render(text, antialias, color, background).convert_alpha() for text in texts]
-	if len(lsurfs) == 1:
-		surf = lsurfs[0]
-	else:
-		ws, hs = zip(*[lsurf.get_size() for lsurf in lsurfs])
-		w, h = max(ws), sum(hs)
-		surf = pygame.Surface((w, h)).convert_alpha()
+	if spx is not None:
+		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
+			background=(0,0,0,0), antialias=antialias)
+		ssurf = getsurf(text, fontname, fontsize, width, widthem, color=scolor,
+			background=(0,0,0,0), antialias=antialias)
+		w0, h0 = surf0.get_size()
+		sx, sy = spx
+		surf = pygame.Surface((w0 + abs(sx), h0 + abs(sy))).convert_alpha()
 		surf.fill(background or (0, 0, 0, 0))
-		y = 0
-		for lsurf in lsurfs:
-			surf.blit(lsurf, (0, y))
-			y += lsurf.get_height()
+		dx, dy = max(sx, 0), max(sy, 0)
+		surf.blit(ssurf, (dx, dy))
+		surf.blit(surf0, (abs(sx) - dx, abs(sy) - dy))
+	elif opx is not None:
+		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
+			background=(0,0,0,0), antialias=antialias)
+		osurf = getsurf(text, fontname, fontsize, width, widthem, color=ocolor,
+			background=(0,0,0,0), antialias=antialias)
+		w0, h0 = surf0.get_size()
+		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
+		surf.fill(background or (0, 0, 0, 0))
+		for dx in (0, opx, 2 * opx):
+			for dy in (0, opx, 2 * opx):
+				surf.blit(osurf, (dx, dy))
+		surf.blit(surf0, (opx, opx))
+	else:
+		font = getfont(fontname, fontsize)
+		# pygame.Font.render does not allow passing None as an argument value for background.
+		if background is None or len(background) > 3 and background[3] == 0:
+			lsurfs = [font.render(text, antialias, color).convert_alpha() for text in texts]
+		else:
+			lsurfs = [font.render(text, antialias, color, background).convert_alpha() for text in texts]
+		if len(lsurfs) == 1:
+			surf = lsurfs[0]
+		else:
+			ws, hs = zip(*[lsurf.get_size() for lsurf in lsurfs])
+			w, h = max(ws), sum(hs)
+			surf = pygame.Surface((w, h)).convert_alpha()
+			surf.fill(background or (0, 0, 0, 0))
+			y = 0
+			for lsurf in lsurfs:
+				surf.blit(lsurf, (0, y))
+				y += lsurf.get_height()
 	_surf_cache[key] = surf
 	return surf
 
@@ -115,10 +151,10 @@ if __name__ == "__main__":
 	screen = pygame.display.set_mode((854, 480))
 	screen.fill((0, 100, 0))
 	FONT_NAME_TEMPLATE = "fonts/%s.ttf"
-	DEFAULT_FONT_NAME = "Lobster-Regular"
+	DEFAULT_FONT_NAME = "Tangerine_Regular"
 	DEFAULT_FONT_SIZE = 60
-	screen.blit(getsurf("pbpb", fontname="Unkempt-Bold"), (400, 120))
-	screen.blit(getsurf("ppp\nbbb\nppp\nbbb"), (100, 100))
+	screen.blit(getsurf("pbpb", fontname="CherryCreamSoda", owidth=1), (400, 120))
+	screen.blit(getsurf("ppp\nbbb\nppp\nbbb", shadow=(0.2,0.2)), (100, 100))
 	screen.blit(getsurf("bbb\nppp\nbbb\nppp"), (190, 100))
 	pygame.display.flip()
 	while not any(event.type in (pygame.KEYDOWN, pygame.QUIT) for event in pygame.event.get()):
