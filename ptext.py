@@ -27,6 +27,9 @@ DEFAULT_FONT_SIZE = 18
 REFERENCE_FONT_SIZE = 100
 DEFAULT_FONT_NAME = None
 FONT_NAME_TEMPLATE = "%s"
+DEFAULT_COLOR = "white"
+DEFAULT_BACKGROUND = None
+
 
 _font_cache = {}
 def getfont(fontname, fontsize):
@@ -71,9 +74,53 @@ def wrap(text, fontname, fontsize, width=None, widthem=None):
 			lines.append(text)
 	return lines
 
+def _resolvecolor(color, default):
+	if color is None: color = default
+	if color is None: return None
+	if isinstance(color, basestring): color = pygame.Color(color)
+	return tuple(color)
+
+_surf_cache = {}
+def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
+	background=None, antialias=True):
+	if fontname is None: fontname = DEFAULT_FONT_NAME
+	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
+	color = _resolvecolor(color, DEFAULT_COLOR)
+	background = _resolvecolor(background, DEFAULT_BACKGROUND)
+	key = text, fontname, fontsize, width, widthem, color, background, antialias
+	if key in _surf_cache: return _surf_cache[key]
+	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
+	font = getfont(fontname, fontsize)
+	# pygame.Font.render does not allow passing None as an argument value for background.
+	if background is None:
+		lsurfs = [font.render(text, antialias, color).convert_alpha() for text in texts]
+	else:
+		lsurfs = [font.render(text, antialias, color, background).convert_alpha() for text in texts]
+	if len(lsurfs) == 1:
+		surf = lsurfs[0]
+	else:
+		ws, hs = zip(*[lsurf.get_size() for lsurf in lsurfs])
+		w, h = max(ws), sum(hs)
+		surf = pygame.Surface((w, h)).convert_alpha()
+		surf.fill(background or (0, 0, 0, 0))
+		y = 0
+		for lsurf in lsurfs:
+			surf.blit(lsurf, (0, y))
+			y += lsurf.get_height()
+	_surf_cache[key] = surf
+	return surf
+
 if __name__ == "__main__":
 	pygame.font.init()
-	getfont(None, 18)
-	text = " ".join("abcdefghijk"[:(n % 5 + n % 7 + 1)] for n in range(100))
-	print text
-	print "\n".join(wrap(text, None, 18, width=200))
+	screen = pygame.display.set_mode((854, 480))
+	screen.fill((0, 100, 0))
+	FONT_NAME_TEMPLATE = "fonts/%s.ttf"
+	DEFAULT_FONT_NAME = "Lobster-Regular"
+	DEFAULT_FONT_SIZE = 60
+	screen.blit(getsurf("pbpb", fontname="Unkempt-Bold"), (400, 120))
+	screen.blit(getsurf("ppp\nbbb\nppp\nbbb"), (100, 100))
+	screen.blit(getsurf("bbb\nppp\nbbb\nppp"), (190, 100))
+	pygame.display.flip()
+	while not any(event.type in (pygame.KEYDOWN, pygame.QUIT) for event in pygame.event.get()):
+		pass
+
