@@ -26,7 +26,7 @@ from __future__ import division
 from math import ceil
 import pygame
 
-DEFAULT_FONT_SIZE = 18
+DEFAULT_FONT_SIZE = 22
 REFERENCE_FONT_SIZE = 100
 DEFAULT_FONT_NAME = None
 FONT_NAME_TEMPLATE = "%s"
@@ -39,6 +39,11 @@ SHADOW_UNIT = 1 / 18
 DEFAULT_TEXT_ALIGN = "left"  # left, center, or right
 DEFAULT_HORIZONTAL_ANCHOR = 0  # 0 = left, 0.5 = center, 1 = right
 DEFAULT_VERTICAL_ANCHOR = 0  # 0 = top, 0.5 = center, 1 = bottom
+ALPHA_RESOLUTION = 16
+
+AUTO_CLEAN = True
+MEMORY_LIMIT_MB = 64
+MEMORY_REDUCTION_FACTOR = 0.5
 
 _font_cache = {}
 def getfont(fontname, fontsize):
@@ -92,9 +97,13 @@ def _resolvecolor(color, default):
 	return tuple(color)
 
 _surf_cache = {}
+_surf_tick_usage = {}
+_surf_size_total = 0
+_tick = 0
 def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
-	textalign=None):
+	alpha=1.0, textalign=None):
+	global _tick, _surf_size_total
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
 	if textalign is None: textalign = DEFAULT_TEXT_ALIGN
@@ -106,11 +115,21 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
 	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
+	alpha = int(round(alpha * ALPHA_RESOLUTION)) / ALPHA_RESOLUTION
 	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
-		textalign)
-	if key in _surf_cache: return _surf_cache[key]
+		alpha, textalign)
+	if key in _surf_cache:
+		_surf_tick_usage[key] = _tick
+		_tick += 1
+		return _surf_cache[key]
 	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
-	if spx is not None:
+	if alpha < 1.0:
+		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
+			ocolor, owidth, scolor, shadow, textalign=textalign)
+		surf = surf0.copy()
+		array = pygame.surfarray.pixels_alpha(surf)
+		array *= alpha
+	elif spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
 			background=(0,0,0,0), antialias=antialias, textalign=textalign)
 		ssurf = getsurf(text, fontname, fontsize, width, widthem, color=scolor,
@@ -153,7 +172,11 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 				x = int(round(textalign * (w - lsurf.get_width())))
 				surf.blit(lsurf, (x, y))
 				y += lsurf.get_height()
+	w, h = surf.get_size()
+	_surf_size_total += 4 * w * h
 	_surf_cache[key] = surf
+	_surf_tick_usage[key] = _tick
+	_tick += 1
 	return surf
 
 def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, widthem=None,
@@ -163,7 +186,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None,
-	textalign=None):
+	alpha=1.0, textalign=None):
 	
 	if topleft: top, left = topleft
 	if bottomleft: bottom, left = bottomleft
@@ -193,24 +216,43 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if vanchor is None: vanchor = DEFAULT_VERTICAL_ANCHOR
 
 	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-		ocolor, owidth, scolor, shadow,	textalign)
+		ocolor, owidth, scolor, shadow,	alpha, textalign)
 	x = int(round(x - hanchor * tsurf.get_width()))
 	y = int(round(y - vanchor * tsurf.get_height()))
 
 	if surf is None: surf = pygame.display.get_surface()
 	surf.blit(tsurf, (x, y))
+	
+	if AUTO_CLEAN:
+		clean()
+
+def clean():
+	global _surf_size_total
+	memory_limit = MEMORY_LIMIT_MB * (1 << 20)
+	if _surf_size_total < memory_limit:
+		return
+	memory_limit *= MEMORY_REDUCTION_FACTOR
+	keys = sorted(_surf_cache, key=_surf_tick_usage.get)
+	for key in keys:
+		w, h = _surf_cache[key].get_size()
+		del _surf_cache[key]
+		del _surf_tick_usage[key]
+		_surf_size_total -= 4 * w * h
+		if _surf_size_total < memory_limit:
+			break
+	print _surf_size_total
 
 if __name__ == "__main__":
 	pygame.font.init()
 	screen = pygame.display.set_mode((854, 480))
 	screen.fill((0, 30, 0))
 	FONT_NAME_TEMPLATE = "fonts/%s.ttf"
-	DEFAULT_FONT_NAME = "Tangerine_Regular"
+	DEFAULT_FONT_NAME = "CherryCreamSoda"
 	DEFAULT_FONT_SIZE = 60
-	draw("ppp\nbbb\nppp\nbbb", (100, 100), shadow=(0.2,0.2))
-	draw("bbb\nppp\nbbb\nppp", (190, 100))
-	draw("displaying a font", fontname="PinyonScript-Regular", width=20, midtop=(450,100), textalign="right")
-	pygame.display.flip()
+	n = 0
 	while not any(event.type in (pygame.KEYDOWN, pygame.QUIT) for event in pygame.event.get()):
-		pass
+		n += 1
+		screen.fill((0, 30, 0))
+		draw("%s" % n, (100, 100), shadow=(1,1), alpha=0.1)
+		pygame.display.flip()
 
