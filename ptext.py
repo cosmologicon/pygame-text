@@ -1,6 +1,6 @@
 # ptext module: place this in your import directory.
 
-# ptext.draw(text, topleft=None, surf=None, **options)
+# ptext.draw(text, pos=None, surf=None, **options)
 
 # options:
 #   fontsize: defaults to 18
@@ -28,6 +28,7 @@ import pygame
 
 DEFAULT_FONT_SIZE = 22
 REFERENCE_FONT_SIZE = 100
+DEFAULT_LINE_HEIGHT = 1.0
 DEFAULT_FONT_NAME = None
 FONT_NAME_TEMPLATE = "%s"
 DEFAULT_COLOR = "white"
@@ -102,22 +103,25 @@ _surf_size_total = 0
 _tick = 0
 def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
-	alpha=1.0, textalign=None):
+	gcolor=None, alpha=1.0, textalign=None, lineheight=None):
 	global _tick, _surf_size_total
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
+	fontsize = int(round(fontsize))
 	if textalign is None: textalign = DEFAULT_TEXT_ALIGN
 	if textalign in ["left", "center", "right"]:
 		textalign = [0, 0.5, 1][["left", "center", "right"].index(textalign)]
+	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
 	color = _resolvecolor(color, DEFAULT_COLOR)
 	background = _resolvecolor(background, DEFAULT_BACKGROUND)
+	gcolor = _resolvecolor(gcolor, None)
 	ocolor = None if owidth is None else _resolvecolor(ocolor, DEFAULT_OUTLINE_COLOR)
 	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
 	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
 	alpha = int(round(alpha * ALPHA_RESOLUTION)) / ALPHA_RESOLUTION
 	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
-		alpha, textalign)
+		gcolor, alpha, textalign)
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
@@ -125,15 +129,17 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
 	if alpha < 1.0:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-			ocolor, owidth, scolor, shadow, textalign=textalign)
+			ocolor, owidth, scolor, shadow, gcolor=gcolor, textalign=textalign,
+			lineheight=lineheight)
 		surf = surf0.copy()
 		array = pygame.surfarray.pixels_alpha(surf)
 		array *= alpha
 	elif spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias, textalign=textalign)
+			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, textalign=textalign,
+			lineheight=lineheight)
 		ssurf = getsurf(text, fontname, fontsize, width, widthem, color=scolor,
-			background=(0,0,0,0), antialias=antialias, textalign=textalign)
+			background=(0,0,0,0), antialias=antialias, textalign=textalign, lineheight=lineheight)
 		w0, h0 = surf0.get_size()
 		sx, sy = spx
 		surf = pygame.Surface((w0 + abs(sx), h0 + abs(sy))).convert_alpha()
@@ -143,9 +149,10 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		surf.blit(surf0, (abs(sx) - dx, abs(sy) - dy))
 	elif opx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias, textalign=textalign)
+			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, textalign=textalign,
+			lineheight=lineheight)
 		osurf = getsurf(text, fontname, fontsize, width, widthem, color=ocolor,
-			background=(0,0,0,0), antialias=antialias, textalign=textalign)
+			background=(0,0,0,0), antialias=antialias, textalign=textalign, lineheight=lineheight)
 		w0, h0 = surf0.get_size()
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
 		surf.fill(background or (0, 0, 0, 0))
@@ -156,22 +163,32 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	else:
 		font = getfont(fontname, fontsize)
 		# pygame.Font.render does not allow passing None as an argument value for background.
-		if background is None or len(background) > 3 and background[3] == 0:
+		if background is None or (len(background) > 3 and background[3] == 0) or gcolor is not None:
 			lsurfs = [font.render(text, antialias, color).convert_alpha() for text in texts]
 		else:
 			lsurfs = [font.render(text, antialias, color, background).convert_alpha() for text in texts]
-		if len(lsurfs) == 1:
+		if gcolor is not None:
+			import numpy
+			m = numpy.clip(numpy.arange(lsurfs[0].get_height()) * 2.0 / font.get_ascent() - 1.0, 0, 1)
+			for lsurf in lsurfs:
+				array = pygame.surfarray.pixels3d(lsurf)
+				for j in (0, 1, 2):
+					array[:,:,j] *= 1.0 - m
+					array[:,:,j] += m * gcolor[j]
+				del array
+			
+		if len(lsurfs) == 1 and gcolor is None:
 			surf = lsurfs[0]
 		else:
 			ws, hs = zip(*[lsurf.get_size() for lsurf in lsurfs])
-			w, h = max(ws), sum(hs)
+			linesize = font.get_linesize() * lineheight
+			ys = [int(round(k * linesize)) for k in range(len(hs))]
+			w, h = max(ws), ys[-1] + hs[-1]
 			surf = pygame.Surface((w, h)).convert_alpha()
 			surf.fill(background or (0, 0, 0, 0))
-			y = 0
-			for lsurf in lsurfs:
+			for y, lsurf in zip(ys, lsurfs):
 				x = int(round(textalign * (w - lsurf.get_width())))
 				surf.blit(lsurf, (x, y))
-				y += lsurf.get_height()
 	w, h = surf.get_size()
 	_surf_size_total += 4 * w * h
 	_surf_cache[key] = surf
@@ -181,12 +198,12 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 
 def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, widthem=None,
 	color=None, background=None, antialias=True,
-	ocolor=None, owidth=None, scolor=None, shadow=None,
+	ocolor=None, owidth=None, scolor=None, shadow=None, gcolor=None,
 	top=None, left=None, bottom=None, right=None,
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None,
-	alpha=1.0, textalign=None):
+	alpha=1.0, textalign=None, lineheight=None):
 	
 	if topleft: top, left = topleft
 	if bottomleft: bottom, left = bottomleft
@@ -216,7 +233,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if vanchor is None: vanchor = DEFAULT_VERTICAL_ANCHOR
 
 	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-		ocolor, owidth, scolor, shadow,	alpha, textalign)
+		ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight)
 	x = int(round(x - hanchor * tsurf.get_width()))
 	y = int(round(y - vanchor * tsurf.get_height()))
 
@@ -249,10 +266,9 @@ if __name__ == "__main__":
 	FONT_NAME_TEMPLATE = "fonts/%s.ttf"
 	DEFAULT_FONT_NAME = "CherryCreamSoda"
 	DEFAULT_FONT_SIZE = 60
-	n = 0
+	screen.fill((0, 30, 0))
+	draw("ppp\nqpq\nbbb", (100, 100), gcolor="red", owidth=1, lineheight=0.6)
+	pygame.display.flip()
 	while not any(event.type in (pygame.KEYDOWN, pygame.QUIT) for event in pygame.event.get()):
-		n += 1
-		screen.fill((0, 30, 0))
-		draw("%s" % n, (100, 100), shadow=(1,1), alpha=0.1)
-		pygame.display.flip()
+		pass
 
