@@ -46,6 +46,8 @@ AUTO_CLEAN = True
 MEMORY_LIMIT_MB = 64
 MEMORY_REDUCTION_FACTOR = 0.5
 
+pygame.font.init()
+
 _font_cache = {}
 def getfont(fontname, fontsize):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
@@ -91,6 +93,35 @@ def wrap(text, fontname, fontsize, width=None, widthem=None):
 				lines.append(text[a+1:])
 	return lines
 
+_fit_cache = {}
+def _fitsize(text, fontname, width, height, lineheight):
+	key = text, fontname, width, height, lineheight
+	if key in _fit_cache: return _fit_cache[key]
+	def fits(fontsize):
+		texts = wrap(text, fontname, fontsize, width)
+		font = getfont(fontname, fontsize)
+		if len(texts) == 1:
+			h = font.get_height()
+		else:
+			linesize = font.get_linesize() * lineheight
+			h = int(round((len(texts) - 1) * linesize)) + font.get_height()
+		return h <= height
+	a, b = 1, 256
+	if not fits(a):
+		fontsize = a
+	elif fits(b):
+		fontsize = b
+	else:
+		while b - a > 1:
+			c = (a + b) // 2
+			if fits(c):
+				a = c
+			else:
+				b = c
+		fontsize = a
+	_fit_cache[key] = fontsize
+	return fontsize
+
 def _resolvecolor(color, default):
 	if color is None: color = default
 	if color is None: return None
@@ -119,7 +150,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
 	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
-	alpha = int(round(alpha * ALPHA_RESOLUTION)) / ALPHA_RESOLUTION
+	alpha = min(max(int(round(alpha * ALPHA_RESOLUTION)) / ALPHA_RESOLUTION, 0), 1)
 	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
 		gcolor, alpha, textalign)
 	if key in _surf_cache:
@@ -176,14 +207,14 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 					array[:,:,j] *= 1.0 - m
 					array[:,:,j] += m * gcolor[j]
 				del array
-			
+
 		if len(lsurfs) == 1 and gcolor is None:
 			surf = lsurfs[0]
 		else:
-			ws, hs = zip(*[lsurf.get_size() for lsurf in lsurfs])
+			w = max(lsurf.get_width() for lsurf in lsurfs)
 			linesize = font.get_linesize() * lineheight
-			ys = [int(round(k * linesize)) for k in range(len(hs))]
-			w, h = max(ws), ys[-1] + hs[-1]
+			ys = [int(round(k * linesize)) for k in range(len(lsurfs))]
+			h = ys[-1] + font.get_height()
 			surf = pygame.Surface((w, h)).convert_alpha()
 			surf.fill(background or (0, 0, 0, 0))
 			for y, lsurf in zip(ys, lsurfs):
@@ -203,6 +234,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None,
+	hanchor=None, vanchor=None,
 	alpha=1.0, textalign=None, lineheight=None):
 	
 	if topleft: top, left = topleft
@@ -215,7 +247,6 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if midright: right, centery = midright
 	if center: centerx, centery = center
 
-	hanchor, vanchor = None, None
 	x, y = pos or (None, None)
 	if left is not None: x, hanchor = left, 0
 	if centerx is not None: x, hanchor = centerx, 0.5
@@ -243,6 +274,18 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if AUTO_CLEAN:
 		clean()
 
+def drawbox(text, rect, fontname=None, lineheight=None, hanchor=None, vanchor=None, **kwargs):
+	if fontname is None: fontname = DEFAULT_FONT_NAME
+	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
+	if hanchor is None: hanchor = 0.5
+	if vanchor is None: vanchor = 0.5
+	rect = pygame.Rect(rect)
+	x = rect.x + hanchor * rect.width
+	y = rect.y + vanchor * rect.height
+	fontsize = _fitsize(text, fontname, rect.width, rect.height, lineheight)
+	draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight, 
+		width=rect.width, hanchor=hanchor, vanchor=vanchor, **kwargs)
+
 def clean():
 	global _surf_size_total
 	memory_limit = MEMORY_LIMIT_MB * (1 << 20)
@@ -257,7 +300,6 @@ def clean():
 		_surf_size_total -= 4 * w * h
 		if _surf_size_total < memory_limit:
 			break
-	print _surf_size_total
 
 if __name__ == "__main__":
 	pygame.font.init()
