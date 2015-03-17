@@ -2,8 +2,8 @@
 
 This module simplifies drawing text with the pygame.font module. Specifically, the `ptext` module:
 
-* handles the pygame.font.Font objects.
-* handles the separate step of generating a Surface and then blitting it.
+* handles the `pygame.font.Font` objects.
+* handles the separate step of generating a `pygame.Surface` and then blitting it.
 * caches commonly-used Surfaces.
 * handles word wrap.
 * provides more fine-grained text positioning options.
@@ -34,6 +34,8 @@ these to your desired defaults.
 
 ## Font name and size
 
+	ptext.draw("hello world", (100, 100), fontname="fonts/Viga.ttf", fontsize=32)
+
 Keyword arguments:
 
 * `fontname`: filename of the font to draw. Defaults to `ptext.DEFAULT_FONT_NAME`, which is set to
@@ -41,8 +43,6 @@ Keyword arguments:
 * `fontsize`: size of the font to use, in pixels. Defaults to `ptext.DEFAULT_FONT_SIZE`, which is
 set to `24` by default.
 * `antialias`: whether to render with antialiasing. Defaults to `True`.
-
-	ptext.draw("hello world", (100, 100), fontname="fonts/Viga.ttf", fontsize=32)
 
 If you don't want to specify the whole filename for the fonts every time, it can be useful to set
 `ptext.FONT_NAME_TEMPLATE`. For instance, if your fonts are in a subdirectory called `fonts` and all
@@ -55,6 +55,8 @@ have the extension `.ttf`:
 
 ## Color and background color
 
+	ptext.draw("hello world", (100, 100), color=(200, 200, 200), background="gray")
+
 Keyword arguments:
 
 * `color`: foreground color to use. Defaults to `ptext.DEFAULT_COLOR`, which is set to `"white"` by
@@ -62,11 +64,9 @@ default.
 * `background`: background color to use. Defaults to `ptext.DEFAULT_BACKGROUND`, which is set to
 `None` by default.
 
-	ptext.draw("hello world", (100, 100), color=(200, 200, 200), background="gray")
-
-`color` (as well as `background`, `ocolor`, `scolor`, and `gcolor`) can be an (r, g, b) sequence, a
-`pygame.Color` object, a color name such as `"orange"`, an HTML hex color string such as
-`"#FF7F00"`, or a hexadecimal color number such as `0xFF7F00`.
+`color` (as well as `background`, `ocolor`, `scolor`, and `gcolor`) can be an (r, g, b) sequence
+such as `(255,127,0)`, a `pygame.Color` object, a color name such as `"orange"`, an HTML hex color
+string such as `"#FF7F00"`, or a string representing a hex color number such as `"0xFF7F00"`.
 
 `background` can also be `None`, in which case the background is transparent.
 
@@ -74,15 +74,15 @@ Colors with alpha transparency are not supported. See the `alpha` keyword argume
 
 ## Positioning
 
+	ptext.draw("hello world", centery=50, right=300)
+	ptext.draw("hello world", midtop=(400, 0))
+
 Keyword arguments:
 
 	top left bottom right
 	topleft bottomleft topright bottomright
 	midtop midleft midbottom midright
 	center centerx centery
-
-	ptext.draw("hello world", centery=50, right=300)
-	ptext.draw("hello world", midtop=(400, 0))
 
 Positioning keyword arguments behave like the corresponding properties of `pygame.Rect`. Either
 specify two arguments, corresponding to the horizontal and vertical positions of the box, or a
@@ -93,6 +93,9 @@ will be (arbitrarily but deterministically) discarded.
 
 ## Word wrap
 
+    ptext.draw("splitting\nlines", (100, 100))
+    ptext.draw("splitting lines", (100, 100), width=60)
+
 Keyword arguments:
 
 * `width`: maximum width of the text to draw, in pixels. Defaults to `None`.
@@ -100,24 +103,21 @@ Keyword arguments:
 * `lineheight`: vertical spacing between lines, in units of the font's default line height. Defaults
 to `1.0`.
 
-    ptext.draw("splitting\nlines", (100, 100))
-    ptext.draw("splitting lines", (100, 100), width=60)
-
-`ptext.draw` will always wrap lines at newline (`\n`) characters. If `width` or `widthem` is also
+`ptext.draw` will always wrap lines at newline (`\n`) characters. If `width` or `widthem` is
 set, it will also try to wrap lines in order to keep each line shorter than the given width. The
 text is not guaranteed to be within the given width, because wrapping only occurs at space
 characters, so if a single word is too long to fit on a line, it will not be broken up. Outline and
 drop shadow are also not accounted for, so they may extend beyond the given width.
 
-You can prevent wrapping on a given space with non-breaking space characters (`\u00A0`).
+You can prevent wrapping on a particular space with non-breaking space characters (`\u00A0`).
 
 ## Text alignment
+
+    ptext.draw("hello\nworld", bottomright=(500, 400), textalign="left")
 
 Keyword argument:
 
 * `textalign`: horizontal positioning of lines with respect to each other. Defaults to `None`.
-
-    ptext.draw("hello\nworld", bottomright=(500, 400), textalign="left")
 
 `textalign` determines how lines are positioned horizontally with respect to each other, when more
 than one line is drawn. Valid values for `textalign` are the strings `"left"`, `"center"`, or
@@ -133,13 +133,13 @@ alignment defaults to `ptext.DEFAULT_TEXT_ALIGN`, which is set to `"left"` by de
 
 ## Outline
 
+	ptext.draw("hello world", (100, 100), owidth=1, ocolor="blue")
+
 Keyword arguments:
 
 * `owidth`: outline thickness, in outline units. Defaults to `None`.
 * `ocolor`: outline color. Defaults to `ptext.DEFAULT_OUTLINE_COLOR`, which is set to `"black"` by
 default.
-
-	ptext.draw("hello world", (100, 100), owidth=1, ocolor="blue")
 
 The text will be outlined if `owidth` is specified. The outlining is a crude manual method, and will
 probably look bad at large font sizes. The units of `owidth` are chosen so that `1.0` is a good
@@ -150,13 +150,13 @@ Valid values for `ocolor` are the same as for `color`.
 
 ## Drop shadow
 
+	ptext.draw("hello world", (100, 100), shadow=(1.0,1.0), ocolor="blue")
+
 Keyword arguments:
 
 * `shadow`: (x,y) values representing the drop shadow offset, in shadow units. Defaults to `None`.
 * `scolor`: drop shadow color. Defaults to `ptext.DEFAULT_SHADOW_COLOR`, which is `"black"` by
 default.
-
-	ptext.draw("hello world", (100, 100), shadow=(1.0,1.0), ocolor="blue")
 
 The text will have a drop shadow if `shadow` is specified. It must be set to a 2-element sequence
 representing the x and y offsets of the drop shadow, which can be positive, negative, or 0. For
@@ -170,11 +170,11 @@ Valid values for `scolor` are the same as for `color`.
 
 ## Gradient color
 
+	ptext.draw("hello world", (100, 100), color="black", gcolor="green")
+
 Keyword argument:
 
 * `gcolor`: Lower gradient stop color. Defaults to `None`.
-
-	ptext.draw("hello world", (100, 100), color="black", gcolor="green")
 
 Specify `gcolor` to color the text with a vertical color gradient. The text's color will be `color`
 at the top and `gcolor` at the bottom. Positioning of the gradient stops and orientation of the
@@ -184,11 +184,11 @@ Requries `pygame.surfarray` module, which uses numpy or Numeric library.
 
 ## Alpha transparency
 
+	ptext.draw("hello world", (100, 100), alpha=0.5)
+
 Keyword argument:
 
 * `alpha`: alpha transparency value, between 0 and 1. Defaults to `1.0`.
-
-	ptext.draw("hello world", (100, 100), alpha=0.5)
 
 In order to maximize reuse of cached transparent surfaces, the value of `alpha` is rounded.
 `ptext.ALPHA_RESOLUTION`, which is set to `16` by default, specifies the number of different values
@@ -199,12 +199,12 @@ Requries `pygame.surfarray` module, which uses numpy or Numeric library.
 
 ## Anchored positioning
 
+	ptext.draw("hello world", (100, 100), anchor=(0.3,0.7))
+
 Keyword argument:
 
 * `anchor`: a length-2 sequence of horizontal and vertical anchor fractions. Defaults to
 `ptext.DEFAULT_ANCHOR`, which is set to `(0.0, 0.0)` by default.
-
-	ptext.draw("hello world", (100, 100), anchor=(0.3,0.7))
 
 `anchor` specifies how the text is anchored to the given position, when no positioning keyword
 arguments are passed. The two values in `anchor` can take arbitrary values between `0.0` and `1.0`.
@@ -213,15 +213,64 @@ text. A value of `(1,1)` means the given position is the bettom right of the tex
 
 ## Destination surface
 
+	mysurface = pygame.Surface((400, 400)).convert_alpha()
+	ptext.draw("hello world", (100, 100), surf=mysurface)
+
 Keyword arugment:
 
 * `surf`: destination `pygame.Surface` object. Defaults to the display Surface.
 
-	mysurface = pygame.Surface((400, 400)).convert_alpha()
-	ptext.draw("hello world", (100, 100), surf=mysurface)
-
 Specify `surf` if you don't want to draw directly to the display Surface
 (`pygame.display.get_surface()`).
 
+## Text Surface caching
 
+	ptext.draw("hello world", (100, 100), cache=False)
+	ptext.AUTO_CLEAN = False
+	ptext.clean()
 
+Keyword argument:
+
+* `cache`: whether to cache Surfaces generated while rendering text during this call. Defaults to
+`True`.
+
+`ptext` caches `pygame.Surface` objects, so they don't have to rendered with subsequent calls. You
+should be able to not worry about this part.
+
+In order to keep memory from getting arbitrarily large, `ptext` will free previously cached
+`Surface` objects, starting with the least recently used objects. In theory, this could cause
+noticeable skips in gameplay. I haven't noticed it, but if you want to control this behavior, set
+`ptext.AUTO_CLEAN` to `False`, and call `ptext.clean` yourself at times when framerate is not
+cruical (e.g. menu screens).
+
+`ptext.MEMORY_LIMIT_MB` is the approximate size of the cache in megabytes before a cleanup occurs.
+It's set to `64` by default. As long as the cache stays below this size, `ptext.clean` is a no-op.
+`ptext.MEMORY_REDUCTION_FACTOR` controls how much is deleted in this process. Valid values range
+from `0.0` (everything is deleted) to `1.0` (just enough is deleted to drop below the limit). It's
+set to `0.5` by default.
+
+## `ptext.drawbox`: Constrained text
+
+	ptext.drawbox("hello world", (100, 100, 200, 50))
+
+`ptext.drawbox` requires two arguments: the text to be drawn, and a `pygame.Rect` or a `Rect`-like
+object to stay within. The font size will be chosen to be as large as possible while staying within
+the box. Other than `fontsize` and positional arguments, you can pass all the same keyword arguments
+to `ptext.drawbox` as to `ptext.draw`.
+
+## Other public methods
+
+These methods are used internally, but you can use them if you want. They should work fine.
+
+	ptext.getfont(fontname, fontsize)
+
+`ptext.getfont` returns the corresponding `pygame.font.Font` object.
+
+	ptext.wrap(text, fontname, fontsize, width=None, widthem=None)
+
+`ptext.wrap` returns a list of substrings of `text`, one for each line in the word wrapped text.
+
+	ptext.getsurf(text, **kwargs)
+
+`ptext.getsurf` takes the same non-positional keyword arguments that `ptext.draw` takes, and returns
+the `pygame.Surface` containing the text to be drawn.
