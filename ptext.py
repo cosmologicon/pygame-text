@@ -1,32 +1,15 @@
 # ptext module: place this in your import directory.
 
-# ptext.draw(text, pos=None, surf=None, **options)
+# ptext.draw(text, pos=None, **options)
 
-# options:
-#   fontsize: defaults to 18
-#   fontname: path to the font file. Defaults to None
-#   
-#   color: defaults to white
-#   ocolor: outline color - defaults to None
-#   scolor: shadow color - defaults to None
-#   angle: counterclockwise rotation angle in degrees - defaults to 0
-#   alpha: defaults to 1.0
-
-
-# If pos is specified, the text is drawn with 
-# If topleft is not specified, you must specify a keyword arg for the position of the text,
-# corresponding to one of the keyword args that pygame.Surface.get_rect takes.
-
-# If surf is not specified, it defaults to the current display surface.
-
-# Wordwrap occurs anywhere text contains \n characters. It will also wrap f
+# Please see README.md for explanation of options.
 
 from __future__ import division
 
 from math import ceil
 import pygame
 
-DEFAULT_FONT_SIZE = 22
+DEFAULT_FONT_SIZE = 24
 REFERENCE_FONT_SIZE = 100
 DEFAULT_LINE_HEIGHT = 1.0
 DEFAULT_FONT_NAME = None
@@ -38,8 +21,7 @@ DEFAULT_SHADOW_COLOR = "black"
 OUTLINE_UNIT = 1 / 24
 SHADOW_UNIT = 1 / 18
 DEFAULT_TEXT_ALIGN = "left"  # left, center, or right
-DEFAULT_HORIZONTAL_ANCHOR = 0  # 0 = left, 0.5 = center, 1 = right
-DEFAULT_VERTICAL_ANCHOR = 0  # 0 = top, 0.5 = center, 1 = bottom
+DEFAULT_ANCHOR = 0, 0  # 0, 0 = top left ;  1, 1 = bottom right
 ALPHA_RESOLUTION = 16
 
 AUTO_CLEAN = True
@@ -234,7 +216,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None,
-	hanchor=None, vanchor=None,
+	anchor=None,
 	alpha=1.0, textalign=None, lineheight=None):
 	
 	if topleft: top, left = topleft
@@ -248,6 +230,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if center: centerx, centery = center
 
 	x, y = pos or (None, None)
+	hanchor, vanchor = anchor or (None, None)
 	if left is not None: x, hanchor = left, 0
 	if centerx is not None: x, hanchor = centerx, 0.5
 	if right is not None: x, hanchor = right, 1
@@ -260,8 +243,8 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 		raise ValueError("Unable to determine vertical position")
 
 	if textalign is None: textalign = hanchor
-	if hanchor is None: hanchor = DEFAULT_HORIZONTAL_ANCHOR
-	if vanchor is None: vanchor = DEFAULT_VERTICAL_ANCHOR
+	if hanchor is None: hanchor = DEFAULT_ANCHOR[0]
+	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
 
 	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
 		ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight)
@@ -274,17 +257,16 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if AUTO_CLEAN:
 		clean()
 
-def drawbox(text, rect, fontname=None, lineheight=None, hanchor=None, vanchor=None, **kwargs):
+def drawbox(text, rect, fontname=None, lineheight=None, anchor=None, **kwargs):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
-	if hanchor is None: hanchor = 0.5
-	if vanchor is None: vanchor = 0.5
+	hanchor, vanchor = anchor = anchor or (0.5, 0.5)
 	rect = pygame.Rect(rect)
 	x = rect.x + hanchor * rect.width
 	y = rect.y + vanchor * rect.height
 	fontsize = _fitsize(text, fontname, rect.width, rect.height, lineheight)
 	draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight, 
-		width=rect.width, hanchor=hanchor, vanchor=vanchor, **kwargs)
+		width=rect.width, anchor=anchor, **kwargs)
 
 def clean():
 	global _surf_size_total
