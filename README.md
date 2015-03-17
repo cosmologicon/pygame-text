@@ -9,9 +9,18 @@ This module simplifies drawing text with the pygame.font module. Specifically, t
 * provides more fine-grained text positioning options.
 * provides a few special effects: outlines, drop shadows, gradient fill, and transparency.
 
-## Quick usage example
+## Quick usage examples
 
-	ptext.draw("hello world", (200, 100), fontname="Arial.ttf", fontsize=60, color="orange")
+	ptext.draw("Hello world", (200, 100), fontname="Arial.ttf", fontsize=60, color="orange")
+	ptext.draw("Positioned text", bottomright=(500, 400))
+	ptext.draw("Allow me to demonstrate some wrapped text.", (0, 0), width=100)
+	ptext.draw("Outlined text", (100, 100), owidth=1.0, ocolor=(10,10,10))
+	ptext.draw("Drop shadow", (100, 100), shadow=(0.5,1.0), scolor="#202020")
+	ptext.draw("Color gradient", (100, 100), color="white", gcolor="blue")
+	ptext.draw("Transparency", (100, 100), alpha=0.5)
+	ptext.draw("All together now:\nCombining the above options",
+		midtop=(480,10), width=400, fontname="fonts/Boogaloo.ttf", fontsize=64,
+		color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8)
 
 ## To install
 
@@ -89,7 +98,8 @@ specify two arguments, corresponding to the horizontal and vertical positions of
 single argument that specifies both.
 
 If the position is overspecified (e.g. both `left` and `right` are given), then extra specifications
-will be (arbitrarily but deterministically) discarded.
+will be (arbitrarily but deterministically) discarded. For constrained text, see the section on
+`ptext.drawbox` below.
 
 ## Word wrap
 
@@ -209,7 +219,7 @@ Keyword argument:
 `anchor` specifies how the text is anchored to the given position, when no positioning keyword
 arguments are passed. The two values in `anchor` can take arbitrary values between `0.0` and `1.0`.
 An `anchor` value of `(0,0)`, the default, means that the given position is the top left of the
-text. A value of `(1,1)` means the given position is the bettom right of the text.
+text. A value of `(1,1)` means the given position is the bottom right of the text.
 
 ## Destination surface
 
@@ -272,5 +282,5 @@ These methods are used internally, but you can use them if you want. They should
 
 	ptext.getsurf(text, **kwargs)
 
-`ptext.getsurf` takes the same non-positional keyword arguments that `ptext.draw` takes, and returns
-the `pygame.Surface` containing the text to be drawn.
+`ptext.getsurf` takes the same keyword arguments that `ptext.draw` takes (except for arguments
+related to positioning), and returns the `pygame.Surface` containing the text to be drawn.
