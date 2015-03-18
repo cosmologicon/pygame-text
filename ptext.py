@@ -54,26 +54,26 @@ def wrap(text, fontname, fontsize, width=None, widthem=None):
 	if width is None:
 		return texts
 	lines = []
+	# Lines may be split at any space character a such that the width of text[:a] is less than
+	# width, or at the first space character on the line (after leading spaces), regardless of
+	# width.
 	for text in texts:
+		text = text.rstrip() + " "
+		# Preserve leading spaces.
 		a = len(text) - len(text.lstrip())
-		if " " not in text[a:]:
-			lines.append(text)
-			continue
 		# At any time, a is the leftmost index you can legally split a line (text[:a]).
 		a = text.index(" ", a)
-		while " " in text[a+1:]:
-			b = text.index(" ", a+1)
-			w, h = font.size(text[:b])
-			if w <= width:
+		while a + 1 < len(text):
+			b = text.index(" ", a + 1)
+			if font.size(text[:b])[0] <= width:
 				a = b
 			else:
 				lines.append(text[:a])
 				text = text[a+1:]
-				a = (text + " ").index(" ")
+				a = text.index(" ")
+		text = text[:-1]
 		if text:
-			lines.append(text[:a])
-			if text[a+1:]:
-				lines.append(text[a+1:])
+			lines.append(text)
 	return lines
 
 _fit_cache = {}
@@ -225,10 +225,10 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	alpha=1.0, textalign=None, lineheight=None,
 	cache=True):
 	
-	if topleft: top, left = topleft
-	if bottomleft: bottom, left = bottomleft
-	if topright: top, right = topright
-	if bottomright: bottom, right = bottomright
+	if topleft: left, top = topleft
+	if bottomleft: left, bottom = bottomleft
+	if topright: right, top = topright
+	if bottomright: right, bottom = bottomright
 	if midtop: centerx, top = midtop
 	if midleft: left, centery = midleft
 	if midbottom: centerx, bottom = midbottom
