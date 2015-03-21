@@ -106,6 +106,6 @@ while playing:
 	if t - tgoal < 2:
 		alpha = min(2 - (t - tgoal), 1)
 		ptext.draw(goaltext, fontname="Boogaloo", fontsize=48, bottom=sy-20, right=sx-40,
-			color="#AAAAFF", gcolor="#4444AA", shadow=(1.5,1.5), alpha=alpha, textalign="center")
+			color="#AAAAFF", gcolor="#4444AA", shadow=(1.5,1.5), alpha=alpha, align="center")
 	pygame.display.flip()
 

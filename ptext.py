@@ -21,7 +21,7 @@ DEFAULT_OUTLINE_COLOR = "black"
 DEFAULT_SHADOW_COLOR = "black"
 OUTLINE_UNIT = 1 / 24
 SHADOW_UNIT = 1 / 18
-DEFAULT_TEXT_ALIGN = "left"  # left, center, or right
+DEFAULT_ALIGN = "left"  # left, center, or right
 DEFAULT_ANCHOR = 0, 0  # 0, 0 = top left ;  1, 1 = bottom right
 ALPHA_RESOLUTION = 16
 ANGLE_RESOLUTION_DEGREES = 3
@@ -130,14 +130,14 @@ _unrotated_size = {}
 _tick = 0
 def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
-	gcolor=None, alpha=1.0, textalign=None, lineheight=None, angle=0, cache=True):
+	gcolor=None, alpha=1.0, align=None, lineheight=None, angle=0, cache=True):
 	global _tick, _surf_size_total
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
 	fontsize = int(round(fontsize))
-	if textalign is None: textalign = DEFAULT_TEXT_ALIGN
-	if textalign in ["left", "center", "right"]:
-		textalign = [0, 0.5, 1][["left", "center", "right"].index(textalign)]
+	if align is None: align = DEFAULT_ALIGN
+	if align in ["left", "center", "right"]:
+		align = [0, 0.5, 1][["left", "center", "right"].index(align)]
 	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
 	color = _resolvecolor(color, DEFAULT_COLOR)
 	background = _resolvecolor(background, DEFAULT_BACKGROUND)
@@ -149,7 +149,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	alpha = _resolvealpha(alpha)
 	angle = _resolveangle(angle)
 	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
-		gcolor, alpha, textalign)
+		gcolor, alpha, align)
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
@@ -157,7 +157,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
 	if angle:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-			ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight, cache=cache)
+			ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, cache=cache)
 		if angle in (90, 180, 270):
 			surf = pygame.transform.rotate(surf0, angle)
 		else:
@@ -165,17 +165,17 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		_unrotated_size[(surf.get_size(), angle)] = surf0.get_size()
 	elif alpha < 1.0:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-			ocolor, owidth, scolor, shadow, gcolor=gcolor, textalign=textalign,
+			ocolor, owidth, scolor, shadow, gcolor=gcolor, align=align,
 			lineheight=lineheight, cache=cache)
 		surf = surf0.copy()
 		array = pygame.surfarray.pixels_alpha(surf)
 		array *= alpha
 	elif spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, textalign=textalign,
+			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, align=align,
 			lineheight=lineheight, cache=cache)
 		ssurf = getsurf(text, fontname, fontsize, width, widthem, color=scolor,
-			background=(0,0,0,0), antialias=antialias, textalign=textalign, lineheight=lineheight,
+			background=(0,0,0,0), antialias=antialias, align=align, lineheight=lineheight,
 			cache=cache)
 		w0, h0 = surf0.get_size()
 		sx, sy = spx
@@ -186,10 +186,10 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		surf.blit(surf0, (abs(sx) - dx, abs(sy) - dy))
 	elif opx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, textalign=textalign,
+			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, align=align,
 			lineheight=lineheight, cache=cache)
 		osurf = getsurf(text, fontname, fontsize, width, widthem, color=ocolor,
-			background=(0,0,0,0), antialias=antialias, textalign=textalign, lineheight=lineheight,
+			background=(0,0,0,0), antialias=antialias, align=align, lineheight=lineheight,
 			cache=cache)
 		w0, h0 = surf0.get_size()
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
@@ -225,7 +225,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 			surf = pygame.Surface((w, h)).convert_alpha()
 			surf.fill(background or (0, 0, 0, 0))
 			for y, lsurf in zip(ys, lsurfs):
-				x = int(round(textalign * (w - lsurf.get_width())))
+				x = int(round(align * (w - lsurf.get_width())))
 				surf.blit(lsurf, (x, y))
 	if cache:
 		w, h = surf.get_size()
@@ -242,7 +242,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None, anchor=None,
-	alpha=1.0, textalign=None, lineheight=None, angle=0,
+	alpha=1.0, align=None, lineheight=None, angle=0,
 	cache=True):
 	
 	if topleft: left, top = topleft
@@ -268,12 +268,12 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if y is None:
 		raise ValueError("Unable to determine vertical position")
 
-	if textalign is None: textalign = hanchor
+	if align is None: align = hanchor
 	if hanchor is None: hanchor = DEFAULT_ANCHOR[0]
 	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
 
 	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-		ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight, angle, cache)
+		ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, angle, cache)
 	if angle:
 		angle = _resolveangle(angle)
 		w0, h0 = _unrotated_size[(tsurf.get_size(), angle)]

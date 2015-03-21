@@ -125,23 +125,20 @@ You can prevent wrapping on a particular space with non-breaking space character
 
 ## Text alignment
 
-    ptext.draw("hello\nworld", bottomright=(500, 400), textalign="left")
+    ptext.draw("hello\nworld", bottomright=(500, 400), align="left")
 
 Keyword argument:
 
-* `textalign`: horizontal positioning of lines with respect to each other. Defaults to `None`.
+* `align`: horizontal positioning of lines with respect to each other. Defaults to `None`.
 
-`textalign` determines how lines are positioned horizontally with respect to each other, when more
-than one line is drawn. Valid values for `textalign` are the strings `"left"`, `"center"`, or
-`"right"`, a numerical value between `0.0` (for left alignment) and `1.0` (for right alignment),
-or `None`.
+`align` determines how lines are positioned horizontally with respect to each other, when more than
+one line is drawn. Valid values for `align` are the strings `"left"`, `"center"`, or `"right"`, a
+numerical value between `0.0` (for left alignment) and `1.0` (for right alignment), or `None`.
 
-If `textalign` is `None`, the alignment is determined based on how the text is positioned
-horizontally. If the left side of the text is positioned (by specifying one of the keyword arguments
-`left`, `topleft`, `bottomleft`, or `midleft`), then the text will be left-aligned. Similarly if the
-right or horizontal center of the text is positioned. If `anchor` is specified, the text alignment
-will be equal to `anchor[0]`. Finally, if no keyword arguments are used to specify position, the
-alignment defaults to `ptext.DEFAULT_TEXT_ALIGN`, which is set to `"left"` by default.
+If `align` is `None`, the alignment is determined based on other arguments, in a way that should be
+what you want most of the time. It depends on any positioning arguments (`topleft`, `centerx`,
+etc.), `anchor`, and `ptext.DEFAULT_TEXT_ALIGN`, which is set to `"left"` by default. I suggest you
+generally trust the default alignment, and only specify `align` if something doesn't look right.
 
 ## Outline
 
