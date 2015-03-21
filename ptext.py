@@ -7,7 +7,7 @@
 
 from __future__ import division
 
-from math import ceil
+from math import ceil, sin, cos, radians
 import pygame
 
 DEFAULT_FONT_SIZE = 24
@@ -24,6 +24,7 @@ SHADOW_UNIT = 1 / 18
 DEFAULT_TEXT_ALIGN = "left"  # left, center, or right
 DEFAULT_ANCHOR = 0, 0  # 0, 0 = top left ;  1, 1 = bottom right
 ALPHA_RESOLUTION = 16
+ANGLE_RESOLUTION_DEGREES = 3
 
 AUTO_CLEAN = True
 MEMORY_LIMIT_MB = 64
@@ -111,13 +112,25 @@ def _resolvecolor(color, default):
 	except ValueError:
 		return tuple(color)
 
+def _resolvealpha(alpha):
+	if alpha >= 1:
+		return 1
+	return max(int(round(alpha * ALPHA_RESOLUTION)) / ALPHA_RESOLUTION, 0)
+
+def _resolveangle(angle):
+	if not angle:
+		return 0
+	angle %= 360
+	return int(round(angle / ANGLE_RESOLUTION_DEGREES)) * ANGLE_RESOLUTION_DEGREES
+
 _surf_cache = {}
 _surf_tick_usage = {}
 _surf_size_total = 0
+_unrotated_size = {}
 _tick = 0
 def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
-	gcolor=None, alpha=1.0, textalign=None, lineheight=None, cache=True):
+	gcolor=None, alpha=1.0, textalign=None, lineheight=None, angle=0, cache=True):
 	global _tick, _surf_size_total
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
@@ -133,7 +146,8 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
 	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
-	alpha = min(max(int(round(alpha * ALPHA_RESOLUTION)) / ALPHA_RESOLUTION, 0), 1)
+	alpha = _resolvealpha(alpha)
+	angle = _resolveangle(angle)
 	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
 		gcolor, alpha, textalign)
 	if key in _surf_cache:
@@ -141,7 +155,15 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		_tick += 1
 		return _surf_cache[key]
 	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
-	if alpha < 1.0:
+	if angle:
+		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
+			ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight, cache=cache)
+		if angle in (90, 180, 270):
+			surf = pygame.transform.rotate(surf0, angle)
+		else:
+			surf = pygame.transform.rotozoom(surf0, angle, 1.0)
+		_unrotated_size[(surf.get_size(), angle)] = surf0.get_size()
+	elif alpha < 1.0:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
 			ocolor, owidth, scolor, shadow, gcolor=gcolor, textalign=textalign,
 			lineheight=lineheight, cache=cache)
@@ -220,7 +242,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None, anchor=None,
-	alpha=1.0, textalign=None, lineheight=None,
+	alpha=1.0, textalign=None, lineheight=None, angle=0,
 	cache=True):
 	
 	if topleft: left, top = topleft
@@ -251,9 +273,19 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
 
 	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-		ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight, cache)
-	x = int(round(x - hanchor * tsurf.get_width()))
-	y = int(round(y - vanchor * tsurf.get_height()))
+		ocolor, owidth, scolor, shadow, gcolor, alpha, textalign, lineheight, angle, cache)
+	if angle:
+		angle = _resolveangle(angle)
+		w0, h0 = _unrotated_size[(tsurf.get_size(), angle)]
+		S, C = sin(radians(angle)), cos(radians(angle))
+		dx, dy = (0.5 - hanchor) * w0, (0.5 - vanchor) * h0
+		x += dx * C + dy * S - 0.5 * tsurf.get_width()
+		y += -dx * S + dy * C - 0.5 * tsurf.get_height()
+	else:
+		x -= hanchor * tsurf.get_width()
+		y -= vanchor * tsurf.get_height()
+	x = int(round(x))
+	y = int(round(y))
 
 	if surf is None: surf = pygame.display.get_surface()
 	surf.blit(tsurf, (x, y))

@@ -14,6 +14,7 @@ ptext.draw("Outlined text", (400, 70), owidth=1.5, ocolor=(255,255,0), color=(0,
 ptext.draw("Drop shadow", (640, 110), shadow=(2,2), scolor="#202020")
 ptext.draw("Color gradient", (540, 170), color="red", gcolor="purple")
 ptext.draw("Transparency", (700, 240), alpha=0.1)
+ptext.draw("Vertical text", midleft=(40, 440), angle=90)
 ptext.draw("All together now:\nCombining the above options",
     midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48,
     color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8)

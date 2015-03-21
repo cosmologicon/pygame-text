@@ -19,6 +19,7 @@ This module simplifies drawing text with the pygame.font module. Specifically, t
 	ptext.draw("Drop shadow", (640, 110), shadow=(2,2), scolor="#202020")
 	ptext.draw("Color gradient", (540, 170), color="red", gcolor="purple")
 	ptext.draw("Transparency", (700, 240), alpha=0.1)
+	ptext.draw("Vertical text", midleft=(40, 440), angle=90)
 	ptext.draw("All together now:\nCombining the above options",
 		midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48,
 		color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8)
@@ -221,6 +222,29 @@ Keyword argument:
 arguments are passed. The two values in `anchor` can take arbitrary values between `0.0` and `1.0`.
 An `anchor` value of `(0,0)`, the default, means that the given position is the top left of the
 text. A value of `(1,1)` means the given position is the bottom right of the text.
+
+## Rotation
+
+	ptext.draw("hello world", (100, 100), angle=10)
+
+Keyword argument:
+
+* `angle`: counterclockwise rotation angle in degrees. Defaults to `0`.
+
+Positioning of rotated surfaces is tricky. When drawing rotated text with `ptext`, the anchor point,
+the position you actually specify, remains fixed, and the text rotates around it. For instance, if
+you specify the top left of the text to be at `(100, 100)` with an angle of `90`, then the Surface
+will actually be drawn so that its bottom left is at `(100, 100)`.
+
+If you find that confusing, try specifying the center. If you anchor the text at the center, then
+the center will remain fixed, no matter how you rotate it.
+
+In order to maximize reuse of cached rotated surfaces, the value of `angle` is rounded to the
+nearest multiple of `ptext.ANGLE_RESOLUTION_DEGREES`, which is set to `3` by default. Set it lower
+for more fine-grained control over rotation. It's recommended you set it only to values that divide
+evenly into 90 in floating-point representation. Such values include:
+
+	0.25 0.5 0.75 1 1.25 1.5 2 2.25 2.5 3 3.75 4.5 5 6 7.5 9 10 15 18 30
 
 ## Destination surface
 
