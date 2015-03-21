@@ -83,12 +83,10 @@ def _fitsize(text, fontname, width, height, lineheight):
 	def fits(fontsize):
 		texts = wrap(text, fontname, fontsize, width)
 		font = getfont(fontname, fontsize)
-		if len(texts) == 1:
-			h = font.get_height()
-		else:
-			linesize = font.get_linesize() * lineheight
-			h = int(round((len(texts) - 1) * linesize)) + font.get_height()
-		return h <= height
+		w = max(font.size(line)[0] for line in texts)
+		linesize = font.get_linesize() * lineheight
+		h = int(round((len(texts) - 1) * linesize)) + font.get_height()
+		return w <= width and h <= height
 	a, b = 1, 256
 	if not fits(a):
 		fontsize = a
