@@ -79,7 +79,9 @@ default.
 such as `(255,127,0)`, a `pygame.Color` object, a color name such as `"orange"`, an HTML hex color
 string such as `"#FF7F00"`, or a string representing a hex color number such as `"0xFF7F00"`.
 
-`background` can also be `None`, in which case the background is transparent.
+`background` can also be `None`, in which case the background is transparent. Unlike
+`pygame.font.Font.render`, it's generally not more efficient to set a background color when calling
+`ptext.draw`. So only specify a background color if you actually want one.
 
 Colors with alpha transparency are not supported. See the `alpha` keyword argument for transparency.
 
@@ -151,9 +153,9 @@ Keyword arguments:
 default.
 
 The text will be outlined if `owidth` is specified. The outlining is a crude manual method, and will
-probably look bad at large font sizes. The units of `owidth` are chosen so that `1.0` is a good
-typical value for outlines. Specifically, they're the font size times `ptext.OUTLINE_UNIT`, which is
-set to `1/24` by default.
+probably look bad at large sizes. The units of `owidth` are chosen so that `1.0` is a good typical
+value for outlines. Specifically, they're the font size times `ptext.OUTLINE_UNIT`, which is set to
+`1/24` by default.
 
 Valid values for `ocolor` are the same as for `color`.
 

@@ -50,7 +50,7 @@ def wrap(text, fontname, fontsize, width=None, widthem=None):
 		raise ValueError("Can't set both width and widthem")
 	else:
 		font = getfont(fontname, REFERENCE_FONT_SIZE)
-		width = widthem * font.size("m")[0]
+		width = widthem * REFERENCE_FONT_SIZE
 	texts = text.replace("\t", "    ").split("\n")
 	if width is None:
 		return texts
@@ -123,6 +123,28 @@ def _resolveangle(angle):
 	angle %= 360
 	return int(round(angle / ANGLE_RESOLUTION_DEGREES)) * ANGLE_RESOLUTION_DEGREES
 
+# Return the set of points in the circle radius r, using Bresenham's circle algorithm
+_circle_cache = {}
+def _circlepoints(r):
+	r = int(round(r))
+	if r in _circle_cache:
+		return _circle_cache[r]
+	x, y, e = r, 0, 1 - r
+	_circle_cache[r] = points = []
+	while x >= y:
+		points.append((x, y))
+		y += 1
+		if e < 0:
+			e += 2 * y - 1
+		else:
+			x -= 1
+			e += 2 * (y - x) - 1
+	points += [(y, x) for x, y in points if x > y]
+	points += [(-x, y) for x, y in points if x]
+	points += [(x, -y) for x, y in points if y]
+	points.sort()
+	return points
+
 _surf_cache = {}
 _surf_tick_usage = {}
 _surf_size_total = 0
@@ -162,7 +184,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 			surf = pygame.transform.rotate(surf0, angle)
 		else:
 			surf = pygame.transform.rotozoom(surf0, angle, 1.0)
-		_unrotated_size[(surf.get_size(), angle)] = surf0.get_size()
+		_unrotated_size[(surf.get_size(), angle, text)] = surf0.get_size()
 	elif alpha < 1.0:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
 			ocolor, owidth, scolor, shadow, gcolor=gcolor, align=align,
@@ -194,9 +216,8 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		w0, h0 = surf0.get_size()
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
 		surf.fill(background or (0, 0, 0, 0))
-		for dx in (0, opx, 2 * opx):
-			for dy in (0, opx, 2 * opx):
-				surf.blit(osurf, (dx, dy))
+		for dx, dy in _circlepoints(opx):
+			surf.blit(osurf, (dx + opx, dy + opx))
 		surf.blit(surf0, (opx, opx))
 	else:
 		font = getfont(fontname, fontsize)
@@ -276,7 +297,7 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 		ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, angle, cache)
 	if angle:
 		angle = _resolveangle(angle)
-		w0, h0 = _unrotated_size[(tsurf.get_size(), angle)]
+		w0, h0 = _unrotated_size[(tsurf.get_size(), angle, text)]
 		S, C = sin(radians(angle)), cos(radians(angle))
 		dx, dy = (0.5 - hanchor) * w0, (0.5 - vanchor) * h0
 		x += dx * C + dy * S - 0.5 * tsurf.get_width()
