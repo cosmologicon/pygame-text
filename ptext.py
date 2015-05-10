@@ -205,7 +205,14 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		surf.fill(background or (0, 0, 0, 0))
 		dx, dy = max(sx, 0), max(sy, 0)
 		surf.blit(ssurf, (dx, dy))
-		surf.blit(surf0, (abs(sx) - dx, abs(sy) - dy))
+		x0, y0 = abs(sx) - dx, abs(sy) - dy
+		if len(color) > 3 and color[3] == 0:
+			array = pygame.surfarray.pixels_alpha(surf)
+			array0 = pygame.surfarray.pixels_alpha(surf0)
+			array[x0:x0+w0,y0:y0+h0] -= array0.clip(max=array[x0:x0+w0,y0:y0+h0])
+			del array, array0
+		else:
+			surf.blit(surf0, (x0, y0))
 	elif opx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
 			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, align=align,
@@ -218,7 +225,13 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		surf.fill(background or (0, 0, 0, 0))
 		for dx, dy in _circlepoints(opx):
 			surf.blit(osurf, (dx + opx, dy + opx))
-		surf.blit(surf0, (opx, opx))
+		if len(color) > 3 and color[3] == 0:
+			array = pygame.surfarray.pixels_alpha(surf)
+			array0 = pygame.surfarray.pixels_alpha(surf0)
+			array[opx:-opx,opx:-opx] -= array0.clip(max=array[opx:-opx,opx:-opx])
+			del array, array0
+		else:
+			surf.blit(surf0, (opx, opx))
 	else:
 		font = getfont(fontname, fontsize)
 		# pygame.Font.render does not allow passing None as an argument value for background.

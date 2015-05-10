@@ -83,7 +83,8 @@ string such as `"#FF7F00"`, or a string representing a hex color number such as 
 `pygame.font.Font.render`, it's generally not more efficient to set a background color when calling
 `ptext.draw`. So only specify a background color if you actually want one.
 
-Colors with alpha transparency are not supported. See the `alpha` keyword argument for transparency.
+Colors with alpha transparency are not supported (except for the special case of invisible text with
+outlines or drop shadows - see below). See the `alpha` keyword argument for transparency.
 
 ## Positioning
 
@@ -157,6 +158,10 @@ probably look bad at large sizes. The units of `owidth` are chosen so that `1.0`
 value for outlines. Specifically, they're the font size times `ptext.OUTLINE_UNIT`, which is set to
 `1/24` by default.
 
+As a special case, setting `color` to a transparent value (e.g. `(0,0,0,0)`) while using outilnes
+will cause the text to be invisible, giving a hollow outline. (This feature is not compatible with
+`gcolor`.)
+
 Valid values for `ocolor` are the same as for `color`.
 
 ## Drop shadow
@@ -176,6 +181,10 @@ example, `shadow=(1.0,1.0)` corresponds to a shadow down and to the right of the
 
 The units of `shadow` are chosen so that `1.0` is a good typical value for the offset. Specifically,
 they're the font size times `ptext.SHADOW_UNIT`, which is set to `1/18` by default.
+
+As a special case, setting `color` to a transparent value (e.g. `(0,0,0,0)`) while using drop shadow
+will cause the text to be invisible, giving a hollow shadow. (This feature is not compatible with
+`gcolor`.)
 
 Valid values for `scolor` are the same as for `color`.
 
