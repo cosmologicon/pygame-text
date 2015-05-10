@@ -100,8 +100,9 @@ while playing:
 	if t - tbuy < 1:
 		dt = t - tbuy
 		pos = sx/2, sy/2
+		fontsize = 32 * (1 + 60 * dt) ** 0.2
 		ptext.draw(buytext, pos, anchor=(0.5,0.9), fontname="Bubblegum_Sans",
-			fontsize=32*(1+2*dt), alpha=1-dt, shadow=(1,1))
+			fontsize=fontsize, alpha=1-dt, shadow=(1,1))
 	# Draw achievement unlocked text (text is centered even though we specify bottom right).
 	if t - tgoal < 2:
 		alpha = min(2 - (t - tgoal), 1)

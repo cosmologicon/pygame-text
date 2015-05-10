@@ -170,8 +170,8 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
 	alpha = _resolvealpha(alpha)
 	angle = _resolveangle(angle)
-	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx, spx,
-		gcolor, alpha, align)
+	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx,
+		scolor, spx, gcolor, alpha, align, lineheight, angle)
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
