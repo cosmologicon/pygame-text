@@ -38,10 +38,38 @@ use the positioning keyword arguments (described later).
 
 	ptext.draw("hello world", (20, 100))
 
-`ptext.draw` takes many optional keyword arguments, described below.
+`ptext.draw` takes the following optional keyword arguments:
 
-The `ptext` module also has many module-level globals that control the default behavior. Please set
-these to your desired defaults.
+	fontname fontsize antialias
+	color background
+	top left bottom right
+	topleft bottomleft topright bottomright
+	midtop midleft midbottom midright
+	center centerx centery
+	width widthem lineheight
+	align
+	owidth ocolor
+	shadow scolor
+	gcolor
+	alpha
+	anchor
+	angle
+	surf
+	cache
+
+The `ptext` module also has module-level globals that control the default behavior. These can be set to your desired values:
+
+	DEFAULT_FONT_NAME DEFAULT_FONT_SIZE FONT_NAME_TEMPLATE
+	DEFAULT_COLOR DEFAULT_BACKGROUND
+	DEFAULT_TEXT_ALIGN
+	DEFAULT_OUTLINE_COLOR OUTLINE_UNIT
+	DEFAULT_SHADOW_COLOR SHADOW_UNIT
+	ALPHA_RESOLUTION
+	DEFAULT_ANCHOR
+	ANGLE_RESOLUTION_DEGREES
+	AUTO_CLEAN MEMORY_LIMIT_MB MEMORY_REDUCTION_FACTOR
+
+The `ptext.draw` keyword arguments and the `ptext` module-level global variables are described in detail in the following sections.
 
 ## Font name and size
 
