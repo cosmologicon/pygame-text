@@ -22,6 +22,10 @@ buttonrects = [pygame.Rect((50, 120 + 85 * j, 180, 70)) for j in range(4)]
 buttonnames = ["auto-clunker", "clunkutron", "turbo enclunkulator", "clunx capacitor"]
 buttoncosts = [10, 400, 12000, 250000]
 
+# Pre-draw the title, using a gradient.
+titleargs = ptext.draw("Clooky Clunker", midtop=(sx/2, 10), fontname="CherryCreamSoda", fontsize=64,
+	owidth=1.2, color="0x884400", gcolor="0x442200", surf=None, cache=False)
+
 playing = True
 clock = pygame.time.Clock()
 while playing:
@@ -87,9 +91,8 @@ while playing:
 	])
 	ptext.draw(hudtext, right=sx-10, top=120, fontname="Roboto_Condensed", fontsize=32,
 		color=(0,200,0), scolor=(0,50,0), shadow=(-1,1), lineheight=1.3)
-	# Draw the title using a gradient
-	ptext.draw("Clooky Clunker", midtop=(sx/2, 10), fontname="CherryCreamSoda", fontsize=64,
-		owidth=1.2, color="0x884400", gcolor="0x442200")
+	# Draw the title
+	screen.blit(*titleargs)
 	# Draw "clunk" indicators
 	for it, ix, iy in clunks:
 		dt = t - it

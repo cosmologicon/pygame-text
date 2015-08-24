@@ -57,7 +57,8 @@ use the positioning keyword arguments (described later).
 	surf
 	cache
 
-The `ptext` module also has module-level globals that control the default behavior. These can be set to your desired values:
+The `ptext` module also has module-level globals that control the default behavior. These can be set
+to your desired values:
 
 	DEFAULT_FONT_NAME DEFAULT_FONT_SIZE FONT_NAME_TEMPLATE
 	DEFAULT_COLOR DEFAULT_BACKGROUND
@@ -69,7 +70,15 @@ The `ptext` module also has module-level globals that control the default behavi
 	ANGLE_RESOLUTION_DEGREES
 	AUTO_CLEAN MEMORY_LIMIT_MB MEMORY_REDUCTION_FACTOR
 
-The `ptext.draw` keyword arguments and the `ptext` module-level global variables are described in detail in the following sections.
+The `ptext.draw` keyword arguments and the `ptext` module-level global variables are described in
+detail in the following sections.
+
+The return value from `ptext.draw` is a length-2 tuple of the Surface to blit, and the destination
+position. You can usually ignore it, but you can use it with `blit` to repeat the exact same draw
+command again, or draw the same text in the same place on a different Surface.
+
+	tsurf, tpos = ptext.draw(..., surf=screen)
+	screen2.blit(tsurf, tpos)  # Also blit to a second surface.
 
 ## Font name and size
 
@@ -294,6 +303,10 @@ Keyword arugment:
 Specify `surf` if you don't want to draw directly to the display Surface
 (`pygame.display.get_surface()`).
 
+If you set `surf` to `None`, then no blitting will actually occur. The text Surface will still be
+generated, and returned from `ptext.draw`. You can use this option if you want to pre-generate a
+text Surface so it's in the cache when you need it.
+
 ## Text Surface caching
 
 	ptext.draw("hello world", (100, 100), cache=False)
@@ -327,7 +340,7 @@ set to `0.5` by default.
 `ptext.drawbox` requires two arguments: the text to be drawn, and a `pygame.Rect` or a `Rect`-like
 object to stay within. The font size will be chosen to be as large as possible while staying within
 the box. Other than `fontsize` and positional arguments, you can pass all the same keyword arguments
-to `ptext.drawbox` as to `ptext.draw`.
+to `ptext.drawbox` as to `ptext.draw`. The return value is the same as for `ptext.draw`.
 
 ## Other public methods
 

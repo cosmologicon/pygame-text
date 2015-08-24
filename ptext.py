@@ -269,14 +269,23 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		_tick += 1
 	return surf
 
-def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, widthem=None,
-	color=None, background=None, antialias=True,
-	ocolor=None, owidth=None, scolor=None, shadow=None, gcolor=None,
+_default_surf_sentinel = ()
+def draw(text, pos=None,
+	fontname=None, fontsize=None, antialias=True,
+	color=None, background=None, 
 	top=None, left=None, bottom=None, right=None,
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
-	center=None, centerx=None, centery=None, anchor=None,
-	alpha=1.0, align=None, lineheight=None, angle=0,
+	center=None, centerx=None, centery=None,
+	width=None,	widthem=None, lineheight=None,
+	align=None,
+	owidth=None, ocolor=None,
+	shadow=None, scolor=None,
+	gcolor=None,
+	alpha=1.0,
+	anchor=None,
+	angle=0,
+	surf=_default_surf_sentinel,
 	cache=True):
 	
 	if topleft: left, top = topleft
@@ -321,11 +330,15 @@ def draw(text, pos=None, surf=None, fontname=None, fontsize=None, width=None, wi
 	x = int(round(x))
 	y = int(round(y))
 
-	if surf is None: surf = pygame.display.get_surface()
-	surf.blit(tsurf, (x, y))
+	if surf is _default_surf_sentinel:
+		surf = pygame.display.get_surface()
+	if surf is not None:
+		surf.blit(tsurf, (x, y))
 	
 	if AUTO_CLEAN:
 		clean()
+
+	return tsurf, (x, y)
 
 def drawbox(text, rect, fontname=None, lineheight=None, anchor=None, **kwargs):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
@@ -335,7 +348,7 @@ def drawbox(text, rect, fontname=None, lineheight=None, anchor=None, **kwargs):
 	x = rect.x + hanchor * rect.width
 	y = rect.y + vanchor * rect.height
 	fontsize = _fitsize(text, fontname, rect.width, rect.height, lineheight)
-	draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight, 
+	return draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight, 
 		width=rect.width, anchor=anchor, **kwargs)
 
 def clean():
