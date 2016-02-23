@@ -191,7 +191,8 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 			lineheight=lineheight, cache=cache)
 		surf = surf0.copy()
 		array = pygame.surfarray.pixels_alpha(surf)
-		array *= alpha
+		array[:,:] = (array[:,:] * alpha).astype(array.dtype)
+		del array
 	elif spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
 			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, align=align,
@@ -245,8 +246,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 			for lsurf in lsurfs:
 				array = pygame.surfarray.pixels3d(lsurf)
 				for j in (0, 1, 2):
-					array[:,:,j] *= 1.0 - m
-					array[:,:,j] += m * gcolor[j]
+					array[:,:,j] = ((1.0 - m) * array[:,:,j] + m * gcolor[j]).astype(array.dtype)
 				del array
 
 		if len(lsurfs) == 1 and gcolor is None:
