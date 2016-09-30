@@ -33,23 +33,36 @@ MEMORY_REDUCTION_FACTOR = 0.5
 pygame.font.init()
 
 _font_cache = {}
-def getfont(fontname, fontsize):
-	if fontname is None: fontname = DEFAULT_FONT_NAME
+def getfont(fontname=None, fontsize=None, sysfontname=None,
+	bold=None, italic=None, underline=None):
+	if fontname is not None and sysfontname is not None:
+		raise ValueError("Can't set both fontname and sysfontname")
+	if fontname is None and sysfontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
-	key = fontname, fontsize
+	key = fontname, fontsize, sysfontname, bold, italic, underline
 	if key in _font_cache: return _font_cache[key]
-	if fontname is not None: fontname = FONT_NAME_TEMPLATE % fontname
-	font = pygame.font.Font(fontname, fontsize)
+	if sysfontname is not None:
+		font = pygame.font.SysFont(sysfontname, fontsize, bold or False, italic or False)
+	else:
+		if fontname is not None: fontname = FONT_NAME_TEMPLATE % fontname
+		font = pygame.font.Font(fontname, fontsize)
+	if bold is not None:
+		font.set_bold(bold)
+	if italic is not None:
+		font.set_italic(italic)
+	if underline is not None:
+		font.set_underline(underline)
 	_font_cache[key] = font
 	return font
 
-def wrap(text, fontname, fontsize, width=None, widthem=None):
+def wrap(text, fontname=None, fontsize=None, sysfontname=None,
+	bold=None, italic=None, underline=None, width=None, widthem=None):
 	if widthem is None:
-		font = getfont(fontname, fontsize)
+		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
 	elif width is not None:
 		raise ValueError("Can't set both width and widthem")
 	else:
-		font = getfont(fontname, REFERENCE_FONT_SIZE)
+		font = getfont(fontname, REFERENCE_FONT_SIZE, sysfontname, bold, italic, underline)
 		width = widthem * REFERENCE_FONT_SIZE
 	texts = text.replace("\t", "    ").split("\n")
 	if width is None:
@@ -78,12 +91,12 @@ def wrap(text, fontname, fontsize, width=None, widthem=None):
 	return lines
 
 _fit_cache = {}
-def _fitsize(text, fontname, width, height, lineheight):
-	key = text, fontname, width, height, lineheight
+def _fitsize(text, fontname, sysfontname, bold, italic, underline, width, height, lineheight):
+	key = text, fontname, sysfontname, bold, italic, underline, width, height, lineheight
 	if key in _fit_cache: return _fit_cache[key]
 	def fits(fontsize):
-		texts = wrap(text, fontname, fontsize, width)
-		font = getfont(fontname, fontsize)
+		texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline, width)
+		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
 		w = max(font.size(line)[0] for line in texts)
 		linesize = font.get_linesize() * lineheight
 		h = int(round((len(texts) - 1) * linesize)) + font.get_height()
@@ -150,7 +163,8 @@ _surf_tick_usage = {}
 _surf_size_total = 0
 _unrotated_size = {}
 _tick = 0
-def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=None,
+def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, italic=None,
+	underline=None, width=None, widthem=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
 	gcolor=None, alpha=1.0, align=None, lineheight=None, angle=0, cache=True):
 	global _tick, _surf_size_total
@@ -170,15 +184,17 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
 	alpha = _resolvealpha(alpha)
 	angle = _resolveangle(angle)
-	key = (text, fontname, fontsize, width, widthem, color, background, antialias, ocolor, opx,
-		scolor, spx, gcolor, alpha, align, lineheight, angle)
+	key = (text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem, color,
+		background, antialias, ocolor, opx, scolor, spx, gcolor, alpha, align, lineheight, angle)
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
 		return _surf_cache[key]
-	texts = wrap(text, fontname, fontsize, width=width, widthem=widthem)
+	texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline,
+		width=width, widthem=widthem)
 	if angle:
-		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
+		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
+			width, widthem, color, background, antialias,
 			ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, cache=cache)
 		if angle in (90, 180, 270):
 			surf = pygame.transform.rotate(surf0, angle)
@@ -186,7 +202,8 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 			surf = pygame.transform.rotozoom(surf0, angle, 1.0)
 		_unrotated_size[(surf.get_size(), angle, text)] = surf0.get_size()
 	elif alpha < 1.0:
-		surf0 = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
+		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
+			width, widthem, color, background, antialias,
 			ocolor, owidth, scolor, shadow, gcolor=gcolor, align=align,
 			lineheight=lineheight, cache=cache)
 		surf = surf0.copy()
@@ -194,12 +211,12 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		array[:,:] = (array[:,:] * alpha).astype(array.dtype)
 		del array
 	elif spx is not None:
-		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, align=align,
-			lineheight=lineheight, cache=cache)
-		ssurf = getsurf(text, fontname, fontsize, width, widthem, color=scolor,
-			background=(0,0,0,0), antialias=antialias, align=align, lineheight=lineheight,
-			cache=cache)
+		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
+			width, widthem, color=color, background=(0,0,0,0), antialias=antialias,
+			gcolor=gcolor, align=align, lineheight=lineheight, cache=cache)
+		ssurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
+			width, widthem, color=scolor, background=(0,0,0,0), antialias=antialias,
+			align=align, lineheight=lineheight, cache=cache)
 		w0, h0 = surf0.get_size()
 		sx, sy = spx
 		surf = pygame.Surface((w0 + abs(sx), h0 + abs(sy))).convert_alpha()
@@ -215,12 +232,12 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		else:
 			surf.blit(surf0, (x0, y0))
 	elif opx is not None:
-		surf0 = getsurf(text, fontname, fontsize, width, widthem, color=color,
-			background=(0,0,0,0), antialias=antialias, gcolor=gcolor, align=align,
-			lineheight=lineheight, cache=cache)
-		osurf = getsurf(text, fontname, fontsize, width, widthem, color=ocolor,
-			background=(0,0,0,0), antialias=antialias, align=align, lineheight=lineheight,
-			cache=cache)
+		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
+			width, widthem, color=color, background=(0,0,0,0), antialias=antialias,
+			gcolor=gcolor, align=align, lineheight=lineheight, cache=cache)
+		osurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
+			width, widthem, color=ocolor, background=(0,0,0,0), antialias=antialias,
+			align=align, lineheight=lineheight, cache=cache)
 		w0, h0 = surf0.get_size()
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
 		surf.fill(background or (0, 0, 0, 0))
@@ -234,7 +251,7 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 		else:
 			surf.blit(surf0, (opx, opx))
 	else:
-		font = getfont(fontname, fontsize)
+		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
 		# pygame.Font.render does not allow passing None as an argument value for background.
 		if background is None or (len(background) > 3 and background[3] == 0) or gcolor is not None:
 			lsurfs = [font.render(text, antialias, color).convert_alpha() for text in texts]
@@ -271,7 +288,8 @@ def getsurf(text, fontname=None, fontsize=None, width=None, widthem=None, color=
 
 _default_surf_sentinel = ()
 def draw(text, pos=None,
-	fontname=None, fontsize=None, antialias=True,
+	fontname=None, fontsize=None, sysfontname=None,
+	antialias=True, bold=None, italic=None, underline=None,
 	color=None, background=None, 
 	top=None, left=None, bottom=None, right=None,
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
@@ -315,8 +333,9 @@ def draw(text, pos=None,
 	if hanchor is None: hanchor = DEFAULT_ANCHOR[0]
 	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
 
-	tsurf = getsurf(text, fontname, fontsize, width, widthem, color, background, antialias,
-		ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, angle, cache)
+	tsurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem,
+		color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, alpha, align,
+		lineheight, angle, cache)
 	if angle:
 		angle = _resolveangle(angle)
 		w0, h0 = _unrotated_size[(tsurf.get_size(), angle, text)]
@@ -340,14 +359,16 @@ def draw(text, pos=None,
 
 	return tsurf, (x, y)
 
-def drawbox(text, rect, fontname=None, lineheight=None, anchor=None, **kwargs):
+def drawbox(text, rect, fontname=None, sysfontname=None, lineheight=None, anchor=None,
+	bold=None, italic=None, underline=None, **kwargs):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
 	hanchor, vanchor = anchor = anchor or (0.5, 0.5)
 	rect = pygame.Rect(rect)
 	x = rect.x + hanchor * rect.width
 	y = rect.y + vanchor * rect.height
-	fontsize = _fitsize(text, fontname, rect.width, rect.height, lineheight)
+	fontsize = _fitsize(text, fontname, sysfontname, bold, italic, underline,
+		rect.width, rect.height, lineheight)
 	return draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight, 
 		width=rect.width, anchor=anchor, **kwargs)
 
