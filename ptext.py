@@ -72,6 +72,9 @@ def wrap(text, fontname=None, fontsize=None, sysfontname=None,
 	# width, or at the first space character on the line (after leading spaces), regardless of
 	# width.
 	for text in texts:
+		if not text:
+			lines.append("")
+			continue
 		text = text.rstrip() + " "
 		# Preserve leading spaces.
 		a = len(text) - len(text.lstrip())
