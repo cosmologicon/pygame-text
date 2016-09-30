@@ -45,7 +45,10 @@ def getfont(fontname=None, fontsize=None, sysfontname=None,
 		font = pygame.font.SysFont(sysfontname, fontsize, bold or False, italic or False)
 	else:
 		if fontname is not None: fontname = FONT_NAME_TEMPLATE % fontname
-		font = pygame.font.Font(fontname, fontsize)
+		try:
+			font = pygame.font.Font(fontname, fontsize)
+		except IOError:
+			raise IOError("unable to read font filename: %s" % fontname)
 	if bold is not None:
 		font.set_bold(bold)
 	if italic is not None:
