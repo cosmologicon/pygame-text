@@ -342,8 +342,8 @@ def draw(text, pos=None,
 	tsurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem,
 		color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, alpha, align,
 		lineheight, angle, cache)
+	angle = _resolveangle(angle)
 	if angle:
-		angle = _resolveangle(angle)
 		w0, h0 = _unrotated_size[(tsurf.get_size(), angle, text)]
 		S, C = sin(radians(angle)), cos(radians(angle))
 		dx, dy = (0.5 - hanchor) * w0, (0.5 - vanchor) * h0
