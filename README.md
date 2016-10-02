@@ -13,6 +13,7 @@ This module simplifies drawing text with the pygame.font module. Specifically, t
 
 	ptext.draw("Text color", (50, 30), color="orange")
 	ptext.draw("Font name and size", (20, 100), fontname="fonts/Boogaloo.ttf", fontsize=60)
+	ptext.draw("Font decoration", (300, 180), sysfontname="freesans", italic=True, underline=True)
 	ptext.draw("Positioned text", topright=(840, 20))
 	ptext.draw("Allow me to demonstrate wrapped text.", (90, 210), width=180, lineheight=1.5)
 	ptext.draw("Outlined text", (400, 70), owidth=1.5, ocolor=(255,255,0), color=(0,0,0))
@@ -40,7 +41,8 @@ use the positioning keyword arguments (described later).
 
 `ptext.draw` takes the following optional keyword arguments:
 
-	fontname fontsize antialias
+	fontname sysfontname fontsize antialias
+	bold italic underline
 	color background
 	top left bottom right
 	topleft bottomleft topright bottomright
@@ -88,18 +90,42 @@ Keyword arguments:
 
 * `fontname`: filename of the font to draw. Defaults to `ptext.DEFAULT_FONT_NAME`, which is set to
 `None` by default.
+* `sysfontname`: name of the system font to draw. Defaults to `None`.
 * `fontsize`: size of the font to use, in pixels. Defaults to `ptext.DEFAULT_FONT_SIZE`, which is
 set to `24` by default.
 * `antialias`: whether to render with antialiasing. Defaults to `True`.
 
-If you don't want to specify the whole filename for the fonts every time, it can be useful to set
-`ptext.FONT_NAME_TEMPLATE`. For instance, if your fonts are in a subdirectory called `fonts` and all
-have the extension `.ttf`:
+Use `fontname` to specify the filename of a font file. Use `sysfontname` to specify the name of a
+system font. At most one of `fontname` and `sysfontname` may be set to something other than `None`.
+
+If you don't want to specify the whole filename for the fonts every time you use `fontname`, it can
+be useful to set `ptext.FONT_NAME_TEMPLATE`. For instance, if your font files are in a subdirectory
+called `fonts` and all have the extension `.ttf`:
 
 	ptext.FONT_NAME_TEMPLATE = "fonts/%s.ttf"
 	ptext.draw("hello world", (100, 100), fontname="Viga")  # Will look for fonts/Viga.ttf
 
-`fontname=None` always refers to the system font.
+If both `fontname` and `sysfontname` are `None` (which is the default if you don't specify either
+of them) then it will fall back to the system font.
+
+## Font decoration
+
+	ptext.draw("hello world", (100, 100), bold=True, underline=True)
+
+Keyword arguments:
+
+* `bold`: whether to apply bold font weight. Defaults to `None`.
+* `italic`: whether to apply italic font style. Defaults to `None`.
+* `underline`: whether to apply underline font decoration. Defaults to `None`.
+
+All of `bold`, `italic`, and `underline` may be set to `True`, `False`, or `None`. Typically there's
+no reason to ever set them to `False`, though. That should be the default for most fonts.
+
+The exact behavior of `bold` and `italic` depends on whether you specify `fontname` or `sysfontname`.
+For `fontname`, these keywords will apply a crude method to the font. A preferable solution is to
+get the bold or italic version of the font file you want, in which case you don't need to use the
+keywords. For `sysfontname`, these keywords will cause you to actually pull up the corresponding bold
+or italic versions of the system font.
 
 ## Color and background color
 
