@@ -48,7 +48,7 @@ use the positioning keyword arguments (described later).
 	topleft bottomleft topright bottomright
 	midtop midleft midbottom midright
 	center centerx centery
-	width widthem lineheight
+	width widthem lineheight strip
 	align
 	owidth ocolor
 	shadow scolor
@@ -64,11 +64,12 @@ to your desired values:
 
 	DEFAULT_FONT_NAME DEFAULT_FONT_SIZE FONT_NAME_TEMPLATE
 	DEFAULT_COLOR DEFAULT_BACKGROUND
-	DEFAULT_TEXT_ALIGN
+	DEFAULT_ALIGN
 	DEFAULT_OUTLINE_COLOR OUTLINE_UNIT
 	DEFAULT_SHADOW_COLOR SHADOW_UNIT
 	ALPHA_RESOLUTION
 	DEFAULT_ANCHOR
+	DEFAULT_STRIP
 	ANGLE_RESOLUTION_DEGREES
 	AUTO_CLEAN MEMORY_LIMIT_MB MEMORY_REDUCTION_FACTOR
 
@@ -180,6 +181,8 @@ Keyword arguments:
 * `widthem`: maximum width of the text to draw, in font-based em units. Defaults to `None`.
 * `lineheight`: vertical spacing between lines, in units of the font's default line height. Defaults
 to `1.0`.
+* `strip`: boolean controlling the handling of trailing spaces and linebreaks. Defaults to
+`ptext.DEFAULT_STRIP`, which is set to `True` by default.
 
 `ptext.draw` will always wrap lines at newline (`\n`) characters. If `width` or `widthem` is
 set, it will also try to wrap lines in order to keep each line shorter than the given width. The
@@ -188,6 +191,16 @@ characters, so if a single word is too long to fit on a line, it will not be bro
 drop shadow are also not accounted for, so they may extend beyond the given width.
 
 You can prevent wrapping on a particular space with non-breaking space characters (`\u00A0`).
+
+The `strip` keyword determines how space characters are handled, for the purpose of wordwrap. If
+`strip` is set to `True` (the default), then trailing spaces will be stripped from all lines. Space
+characters that occur at a linebreak will not be printed, on either of the two lines, and they will
+not contribute to the length of the line in accounting for width. Leading spaces (i.e. spaces that
+occur at the beginning of the string, or immediately after `"\n"`, will be preserved.
+
+If `strip` is set to `False`, then all space characters will be preserved and printed. Linebreaks
+can occur immediately before or after a space character, or in between two space characters. The
+width of the space characters themselves is included in the line length calculation.
 
 ## Text alignment
 
@@ -203,7 +216,7 @@ numerical value between `0.0` (for left alignment) and `1.0` (for right alignmen
 
 If `align` is `None`, the alignment is determined based on other arguments, in a way that should be
 what you want most of the time. It depends on any positioning arguments (`topleft`, `centerx`,
-etc.), `anchor`, and `ptext.DEFAULT_TEXT_ALIGN`, which is set to `"left"` by default. I suggest you
+etc.), `anchor`, and `ptext.DEFAULT_ALIGN`, which is set to `"left"` by default. I suggest you
 generally trust the default alignment, and only specify `align` if something doesn't look right.
 
 ## Outline

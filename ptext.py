@@ -23,6 +23,7 @@ OUTLINE_UNIT = 1 / 24
 SHADOW_UNIT = 1 / 18
 DEFAULT_ALIGN = "left"  # left, center, or right
 DEFAULT_ANCHOR = 0, 0  # 0, 0 = top left ;  1, 1 = bottom right
+DEFAULT_STRIP = True
 ALPHA_RESOLUTION = 16
 ANGLE_RESOLUTION_DEGREES = 3
 
@@ -59,7 +60,7 @@ def getfont(fontname=None, fontsize=None, sysfontname=None,
 	return font
 
 def wrap(text, fontname=None, fontsize=None, sysfontname=None,
-	bold=None, italic=None, underline=None, width=None, widthem=None):
+	bold=None, italic=None, underline=None, width=None, widthem=None, strip=None):
 	if widthem is None:
 		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
 	elif width is not None:
@@ -67,41 +68,63 @@ def wrap(text, fontname=None, fontsize=None, sysfontname=None,
 	else:
 		font = getfont(fontname, REFERENCE_FONT_SIZE, sysfontname, bold, italic, underline)
 		width = widthem * REFERENCE_FONT_SIZE
+	if strip is None:
+		strip = DEFAULT_STRIP
 	texts = text.replace("\t", "    ").split("\n")
-	if width is None:
-		return texts
 	lines = []
-	# Lines may be split at any space character a such that the width of text[:a] is less than
-	# width, or at the first space character on the line (after leading spaces), regardless of
-	# width.
 	for text in texts:
+		if strip:
+			text = text.rstrip(" ")
+		if width is None:
+			lines.append(text)
+			continue
 		if not text:
 			lines.append("")
 			continue
-		text = text.rstrip() + " "
-		# Preserve leading spaces.
-		a = len(text) - len(text.lstrip())
-		# At any time, a is the leftmost index you can legally split a line (text[:a]).
-		a = text.index(" ", a)
+		# Preserve leading spaces in all cases.
+		a = len(text) - len(text.lstrip(" "))
+		# At any time, a is the rightmost known index you can legally split a line. I.e. it's legal
+		# to add text[:a] to lines, and line is what will be added to lines if text is split at a.
+		a = text.index(" ", a) if " " in text else len(text)
+		line = text[:a]
 		while a + 1 < len(text):
-			b = text.index(" ", a + 1)
-			if font.size(text[:b])[0] <= width:
-				a = b
+			# b is the next legal place to break the line, with bline the corresponding line to add.
+			if " " not in text[a+1:]:
+				b = len(text)
+				bline = text
+			elif strip:
+				# Lines may be split at any space character that immediately follows a non-space
+				# character.
+				b = text.index(" ", a + 1)
+				while text[b-1] == " ":
+					if " " in text[b+1:]:
+						b = text.index(" ", b + 1)
+					else:
+						b = len(text)
+						break
+				bline = text[:b]
 			else:
-				lines.append(text[:a])
-				text = text[a+1:]
-				a = text.index(" ")
-		text = text[:-1]
+				# Lines may be split at any space character, or any character immediately following
+				# a space character.
+				b = a + 1 if text[a] == " " else text.index(" ", a + 1)
+			bline = text[:b]
+			if font.size(bline)[0] <= width:
+				a, line = b, bline
+			else:
+				lines.append(line)
+				text = text[a:].lstrip(" ") if strip else text[a:]
+				a = text.index(" ", 1) if " " in text[1:] else len(text)
+				line = text[:a]
 		if text:
-			lines.append(text)
+			lines.append(line)
 	return lines
 
 _fit_cache = {}
-def _fitsize(text, fontname, sysfontname, bold, italic, underline, width, height, lineheight):
-	key = text, fontname, sysfontname, bold, italic, underline, width, height, lineheight
+def _fitsize(text, fontname, sysfontname, bold, italic, underline, width, height, lineheight, strip):
+	key = text, fontname, sysfontname, bold, italic, underline, width, height, lineheight, strip
 	if key in _fit_cache: return _fit_cache[key]
 	def fits(fontsize):
-		texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline, width)
+		texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline, width, strip)
 		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
 		w = max(font.size(line)[0] for line in texts)
 		linesize = font.get_linesize() * lineheight
@@ -170,7 +193,7 @@ _surf_size_total = 0
 _unrotated_size = {}
 _tick = 0
 def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, italic=None,
-	underline=None, width=None, widthem=None, color=None,
+	underline=None, width=None, widthem=None, strip=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
 	gcolor=None, alpha=1.0, align=None, lineheight=None, angle=0, cache=True):
 	global _tick, _surf_size_total
@@ -190,17 +213,18 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
 	alpha = _resolvealpha(alpha)
 	angle = _resolveangle(angle)
-	key = (text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem, color,
-		background, antialias, ocolor, opx, scolor, spx, gcolor, alpha, align, lineheight, angle)
+	strip = DEFAULT_STRIP if strip is None else strip
+	key = (text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem, strip,
+		color, background, antialias, ocolor, opx, scolor, spx, gcolor, alpha, align, lineheight, angle)
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
 		return _surf_cache[key]
 	texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline,
-		width=width, widthem=widthem)
+		width=width, widthem=widthem, strip=strip)
 	if angle:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, color, background, antialias,
+			width, widthem, strip, color, background, antialias,
 			ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, cache=cache)
 		if angle in (90, 180, 270):
 			surf = pygame.transform.rotate(surf0, angle)
@@ -218,10 +242,10 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 		del array
 	elif spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, color=color, background=(0,0,0,0), antialias=antialias,
+			width, widthem, strip, color=color, background=(0,0,0,0), antialias=antialias,
 			gcolor=gcolor, align=align, lineheight=lineheight, cache=cache)
 		ssurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, color=scolor, background=(0,0,0,0), antialias=antialias,
+			width, widthem, strip, color=scolor, background=(0,0,0,0), antialias=antialias,
 			align=align, lineheight=lineheight, cache=cache)
 		w0, h0 = surf0.get_size()
 		sx, sy = spx
@@ -239,10 +263,10 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 			surf.blit(surf0, (x0, y0))
 	elif opx is not None:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, color=color, background=(0,0,0,0), antialias=antialias,
+			width, widthem, strip, color=color, background=(0,0,0,0), antialias=antialias,
 			gcolor=gcolor, align=align, lineheight=lineheight, cache=cache)
 		osurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, color=ocolor, background=(0,0,0,0), antialias=antialias,
+			width, widthem, strip, color=ocolor, background=(0,0,0,0), antialias=antialias,
 			align=align, lineheight=lineheight, cache=cache)
 		w0, h0 = surf0.get_size()
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
@@ -301,7 +325,7 @@ def draw(text, pos=None,
 	topleft=None, bottomleft=None, topright=None, bottomright=None,
 	midtop=None, midleft=None, midbottom=None, midright=None,
 	center=None, centerx=None, centery=None,
-	width=None,	widthem=None, lineheight=None,
+	width=None,	widthem=None, lineheight=None, strip=None,
 	align=None,
 	owidth=None, ocolor=None,
 	shadow=None, scolor=None,
@@ -340,7 +364,7 @@ def draw(text, pos=None,
 	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
 
 	tsurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem,
-		color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, alpha, align,
+		strip, color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, alpha, align,
 		lineheight, angle, cache)
 	angle = _resolveangle(angle)
 	if angle:

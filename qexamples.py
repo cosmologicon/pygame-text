@@ -6,7 +6,8 @@ import ptext
 screen = pygame.display.set_mode((854, 480))
 screen.fill((0, 30, 60))
 
-ptext.draw("Text color", (50, 30), color="orange")
+ptext.draw(u"c ", (20, 20), fontname="fonts/Boogaloo.ttf", fontsize=60, background = "black")
+
 ptext.draw("Font name and size", (20, 100), fontname="fonts/Boogaloo.ttf", fontsize=60)
 ptext.draw("Font decoration", (300, 180), sysfontname="freesans", italic=True, underline=True)
 ptext.draw("Positioned text", topright=(840, 20))
