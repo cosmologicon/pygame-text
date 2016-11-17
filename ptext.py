@@ -233,7 +233,7 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 		_unrotated_size[(surf.get_size(), angle, text)] = surf0.get_size()
 	elif alpha < 1.0:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, color, background, antialias,
+			width, widthem, strip, color, background, antialias,
 			ocolor, owidth, scolor, shadow, gcolor=gcolor, align=align,
 			lineheight=lineheight, cache=cache)
 		surf = surf0.copy()
@@ -390,7 +390,7 @@ def draw(text, pos=None,
 	return tsurf, (x, y)
 
 def drawbox(text, rect, fontname=None, sysfontname=None, lineheight=None, anchor=None,
-	bold=None, italic=None, underline=None, **kwargs):
+	bold=None, italic=None, underline=None, strip=None, **kwargs):
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
 	hanchor, vanchor = anchor = anchor or (0.5, 0.5)
@@ -398,9 +398,9 @@ def drawbox(text, rect, fontname=None, sysfontname=None, lineheight=None, anchor
 	x = rect.x + hanchor * rect.width
 	y = rect.y + vanchor * rect.height
 	fontsize = _fitsize(text, fontname, sysfontname, bold, italic, underline,
-		rect.width, rect.height, lineheight)
+		rect.width, rect.height, lineheight, strip)
 	return draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight, 
-		width=rect.width, anchor=anchor, **kwargs)
+		width=rect.width, strip=strip, anchor=anchor, **kwargs)
 
 def clean():
 	global _surf_size_total
