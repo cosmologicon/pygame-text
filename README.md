@@ -52,7 +52,7 @@ use the positioning keyword arguments (described later).
 	align
 	owidth ocolor
 	shadow scolor
-	gcolor
+	gcolor shade
 	alpha
 	anchor
 	angle
@@ -67,6 +67,7 @@ to your desired values:
 	DEFAULT_ALIGN
 	DEFAULT_OUTLINE_COLOR OUTLINE_UNIT
 	DEFAULT_SHADOW_COLOR SHADOW_UNIT
+	DEFAULT_SHADE
 	ALPHA_RESOLUTION
 	DEFAULT_ANCHOR
 	DEFAULT_LINE_HEIGHT DEFAULT_PARAGRAPH_SPACE DEFAULT_STRIP
@@ -275,13 +276,21 @@ Valid values for `scolor` are the same as for `color`.
 
 	ptext.draw("hello world", (100, 100), color="black", gcolor="green")
 
-Keyword argument:
+Keyword arguments:
 
 * `gcolor`: Lower gradient stop color. Defaults to `None`.
+* `shade`: Gradient shading amount. Higher values are darker. Defaults to `ptext.DEFAULT_SHADE`,
+which is `0` by default.
 
 Specify `gcolor` to color the text with a vertical color gradient. The text's color will be `color`
 at the top and `gcolor` at the bottom. Positioning of the gradient stops and orientation of the
 gradient are hard coded and cannot be specified.
+
+Alternately, for a simple darkening or lightening effect, set `shade`, which will darken or lighten
+the color for a gradient. Positive values give a sense of being illuminated from above, and negative
+values give a sense of being illuminated from below. The units of `shade` are chosen such that
+`shade=1` is a good typical value. `shade=3` will produce a very strong shading effect. Note that
+this is completely separate from drop shadow, which is specified using the `shadow` argument.
 
 Requries `pygame.surfarray` module, which uses numpy or Numeric library.
 

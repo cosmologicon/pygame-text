@@ -90,7 +90,7 @@ while playing:
 		"clunks per second: %d" % clunkers,
 	])
 	ptext.draw(hudtext, right=sx-10, top=120, fontname="Roboto_Condensed", fontsize=32,
-		color=(0,200,0), scolor=(0,50,0), shadow=(-1,1), lineheight=1.3)
+		color=(0,200,0), shade=1, scolor=(0,50,0), shadow=(-1,1), lineheight=1.3)
 	# Draw the title
 	screen.blit(*titleargs)
 	# Draw "clunk" indicators

@@ -7,7 +7,7 @@
 
 from __future__ import division
 
-from math import ceil, sin, cos, radians
+from math import ceil, sin, cos, radians, exp
 import pygame
 
 DEFAULT_FONT_SIZE = 24
@@ -18,6 +18,7 @@ DEFAULT_FONT_NAME = None
 FONT_NAME_TEMPLATE = "%s"
 DEFAULT_COLOR = "white"
 DEFAULT_BACKGROUND = None
+DEFAULT_SHADE = 0
 DEFAULT_OUTLINE_COLOR = "black"
 DEFAULT_SHADOW_COLOR = "black"
 OUTLINE_UNIT = 1 / 24
@@ -156,6 +157,14 @@ def _resolvecolor(color, default):
 	except ValueError:
 		return tuple(color)
 
+def _applyshade(color, shade):
+	f = exp(-0.4 * shade)
+	r, g, b = [
+		min(max(int(round((c + 50) * f - 50)), 0), 255)
+		for c in color[:3]
+	]
+	return (r, g, b) + tuple(color[3:])
+
 def _resolvealpha(alpha):
 	if alpha >= 1:
 		return 1
@@ -197,7 +206,8 @@ _tick = 0
 def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, italic=None,
 	underline=None, width=None, widthem=None, strip=None, color=None,
 	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
-	gcolor=None, alpha=1.0, align=None, lineheight=None, pspace=None, angle=0, cache=True):
+	gcolor=None, shade=None, alpha=1.0, align=None, lineheight=None, pspace=None, angle=0,
+	cache=True):
 	global _tick, _surf_size_total
 	if fontname is None: fontname = DEFAULT_FONT_NAME
 	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
@@ -210,6 +220,10 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 	color = _resolvecolor(color, DEFAULT_COLOR)
 	background = _resolvecolor(background, DEFAULT_BACKGROUND)
 	gcolor = _resolvecolor(gcolor, None)
+	if shade is None: shade = DEFAULT_SHADE
+	if shade:
+		gcolor = _applyshade(gcolor or color, shade)
+		shade = 0
 	ocolor = None if owidth is None else _resolvecolor(ocolor, DEFAULT_OUTLINE_COLOR)
 	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
 	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
@@ -229,7 +243,7 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 	if angle:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
 			width, widthem, strip, color, background, antialias,
-			ocolor, owidth, scolor, shadow, gcolor, alpha, align, lineheight, pspace,
+			ocolor, owidth, scolor, shadow, gcolor, 0, alpha, align, lineheight, pspace,
 			cache=cache)
 		if angle in (90, 180, 270):
 			surf = pygame.transform.rotate(surf0, angle)
@@ -239,7 +253,7 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 	elif alpha < 1.0:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
 			width, widthem, strip, color, background, antialias,
-			ocolor, owidth, scolor, shadow, gcolor=gcolor, align=align,
+			ocolor, owidth, scolor, shadow, gcolor=gcolor, shade=0, align=align,
 			lineheight=lineheight, pspace=pspace, cache=cache)
 		surf = surf0.copy()
 		array = pygame.surfarray.pixels_alpha(surf)
@@ -248,7 +262,7 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 	elif spx is not None:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
 			width, widthem, strip, color=color, background=(0,0,0,0), antialias=antialias,
-			gcolor=gcolor, align=align, lineheight=lineheight, pspace=pspace, cache=cache)
+			gcolor=gcolor, shade=0, align=align, lineheight=lineheight, pspace=pspace, cache=cache)
 		ssurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
 			width, widthem, strip, color=scolor, background=(0,0,0,0), antialias=antialias,
 			align=align, lineheight=lineheight, pspace=pspace, cache=cache)
@@ -269,7 +283,7 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 	elif opx is not None:
 		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
 			width, widthem, strip, color=color, background=(0,0,0,0), antialias=antialias,
-			gcolor=gcolor, align=align, lineheight=lineheight, pspace=pspace, cache=cache)
+			gcolor=gcolor, shade=0, align=align, lineheight=lineheight, pspace=pspace, cache=cache)
 		osurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
 			width, widthem, strip, color=ocolor, background=(0,0,0,0), antialias=antialias,
 			align=align, lineheight=lineheight, pspace=pspace, cache=cache)
@@ -335,7 +349,7 @@ def draw(text, pos=None,
 	align=None,
 	owidth=None, ocolor=None,
 	shadow=None, scolor=None,
-	gcolor=None,
+	gcolor=None, shade=None,
 	alpha=1.0,
 	anchor=None,
 	angle=0,
@@ -370,8 +384,8 @@ def draw(text, pos=None,
 	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
 
 	tsurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem,
-		strip, color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, alpha, align,
-		lineheight, pspace, angle, cache)
+		strip, color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, shade, alpha,
+		align, lineheight, pspace, angle, cache)
 	angle = _resolveangle(angle)
 	if angle:
 		w0, h0 = _unrotated_size[(tsurf.get_size(), angle, text)]
