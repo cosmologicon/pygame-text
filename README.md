@@ -48,7 +48,7 @@ use the positioning keyword arguments (described later).
 	topleft bottomleft topright bottomright
 	midtop midleft midbottom midright
 	center centerx centery
-	width widthem lineheight strip
+	width widthem lineheight pspace strip
 	align
 	owidth ocolor
 	shadow scolor
@@ -69,7 +69,7 @@ to your desired values:
 	DEFAULT_SHADOW_COLOR SHADOW_UNIT
 	ALPHA_RESOLUTION
 	DEFAULT_ANCHOR
-	DEFAULT_STRIP
+	DEFAULT_LINE_HEIGHT DEFAULT_PARAGRAPH_SPACE DEFAULT_STRIP
 	ANGLE_RESOLUTION_DEGREES
 	AUTO_CLEAN MEMORY_LIMIT_MB MEMORY_REDUCTION_FACTOR
 
@@ -170,7 +170,7 @@ If the position is overspecified (e.g. both `left` and `right` are given), then 
 will be (arbitrarily but deterministically) discarded. For constrained text, see the section on
 `ptext.drawbox` below.
 
-## Word wrap
+## Word wrap and line spacing
 
     ptext.draw("splitting\nlines", (100, 100))
     ptext.draw("splitting lines", (100, 100), width=60)
@@ -180,7 +180,9 @@ Keyword arguments:
 * `width`: maximum width of the text to draw, in pixels. Defaults to `None`.
 * `widthem`: maximum width of the text to draw, in font-based em units. Defaults to `None`.
 * `lineheight`: vertical spacing between lines, in units of the font's default line height. Defaults
-to `1.0`.
+to `ptext.DEFAULT_LINE_HEIGHT`, which defaults to `1`.
+* `pspace`: additional vertical spacing between paragraphs, in units of the font's default line
+height. Defaults to `ptext.DEFAULT_PARAGRAPH_SPACE`, which defaults to `0`.
 * `strip`: boolean controlling the handling of trailing spaces and linebreaks. Defaults to
 `ptext.DEFAULT_STRIP`, which is set to `True` by default.
 
@@ -192,7 +194,12 @@ drop shadow are also not accounted for, so they may extend beyond the given widt
 
 You can prevent wrapping on a particular space with non-breaking space characters (`\u00A0`).
 
-The `strip` keyword determines how space characters are handled, for the purpose of wordwrap. If
+Vertical positioning of each line depends on the values of `lineheight` and `pspace`. `pspace` is
+only applied for explicit line breaks (i.e. at newline characters), whereas `lineheight` is applied
+for both explicit line breaks, and line breaks due to word wrap. Increasing these values will spread
+lines apart more vertically.
+
+The `strip` keyword determines how space characters are handled, for the purpose of word wrap. If
 `strip` is set to `True` (the default), then trailing spaces will be stripped from all lines. Space
 characters that occur at a linebreak will not be printed, on either of the two lines, and they will
 not contribute to the length of the line in accounting for width. Leading spaces (i.e. spaces that
@@ -391,7 +398,9 @@ These methods are used internally, but you can use them if you want. They should
 
 	ptext.wrap(text, fontname, fontsize, width=None, widthem=None)
 
-`ptext.wrap` returns a list of substrings of `text`, one for each line in the word wrapped text.
+`ptext.wrap` returns a list of 2-tuples `(line, jpara)`, one line for each line in the word wrapped
+text. Here `line` is a substring of `text`, and `jpara` is the paragraph number that line appears
+in.
 
 	ptext.getsurf(text, **kwargs)
 
