@@ -44,19 +44,20 @@ class _Options(object):
 	_fields = ()
 	_defaults = {}
 	def __init__(self, **kwargs):
-		fields = set(self._fields) | set(self._defaults)
+		fields = self._allfields()
 		badfields = set(kwargs) - fields
 		if badfields:
 			raise ValueError("Unrecognized args: " + ", ".join(badfields))
 		for field in fields:
 			value = kwargs[field] if field in kwargs else self._defaults.get(field)
 			setattr(self, field, value)
-
-# Decorator class to allow options objects to have default values.
-# Apply an instance of this class as a decorator to a namedtuple in order to have all of its fields
-# default to None. Optionally specify default vaules for each field with a dict mapping field name
-# to default value.
-
+	@classmethod
+	def _allfields(cls):
+		return set(cls._fields) | set(cls._defaults)
+	def update(self, **newkwargs):
+		kwargs = { field: getattr(self, field) for field in self._allfields() }
+		kwargs.update(**newkwargs)
+		return kwargs
 
 _default_surf_sentinel = ()
 
@@ -129,6 +130,46 @@ class _DrawOptions(_Options):
 	def resolvesurf(self):
 		if self.surf is _default_surf_sentinel:
 			self.surf = pygame.display.get_surface()
+
+	def togetsurfoptions(self):
+		return { field: getattr(self, field) for field in _GetsurfOptions._allfields() }
+
+
+class _GetsurfOptions(_Options):
+	_fields = ("fontname", "fontsize", "sysfontname", "bold", "italic", "underline", "width",
+		"widthem", "strip", "color", "background", "antialias", "ocolor", "owidth", "scolor",
+		"shadow", "gcolor", "shade", "alpha", "align", "lineheight", "pspace", "angle", "cache")
+	_defaults = { "antialias": True, "alpha": 1.0, "angle": 0, "cache": True }
+
+	def __init__(self, **kwargs):
+		_Options.__init__(self, **kwargs)
+		if self.fontname is None: self.fontname = DEFAULT_FONT_NAME
+		if self.fontsize is None: self.fontsize = DEFAULT_FONT_SIZE
+		self.fontsize = int(round(self.fontsize))
+		if self.align is None: self.align = DEFAULT_ALIGN
+		if self.align in ["left", "center", "right"]:
+			self.align = [0, 0.5, 1][["left", "center", "right"].index(self.align)]
+		if self.lineheight is None: self.lineheight = DEFAULT_LINE_HEIGHT
+		if self.pspace is None: self.pspace = DEFAULT_PARAGRAPH_SPACE
+		self.color = _resolvecolor(self.color, DEFAULT_COLOR)
+		self.background = _resolvecolor(self.background, DEFAULT_BACKGROUND)
+		self.gcolor = _resolvecolor(self.gcolor, None)
+		if self.shade is None: self.shade = DEFAULT_SHADE
+		if self.shade:
+			self.gcolor = _applyshade(self.gcolor or self.color, self.shade)
+			self.shade = 0
+		self.ocolor = None if self.owidth is None else _resolvecolor(self.ocolor, DEFAULT_OUTLINE_COLOR)
+		self.scolor = None if self.shadow is None else _resolvecolor(self.scolor, DEFAULT_SHADOW_COLOR)
+
+		self._opx = None if self.owidth is None else ceil(self.owidth * self.fontsize * OUTLINE_UNIT)
+		self._spx = None if self.shadow is None else tuple(ceil(s * self.fontsize * SHADOW_UNIT) for s in self.shadow)
+		self.alpha = _resolvealpha(self.alpha)
+		self.angle = _resolveangle(self.angle)
+		self.strip = DEFAULT_STRIP if self.strip is None else self.strip
+
+	def key(self):
+		return tuple(getattr(self, field) for field in sorted(self._allfields()))
+
 
 _font_cache = {}
 def getfont(fontname=None, fontsize=None, sysfontname=None,
@@ -298,96 +339,57 @@ _surf_tick_usage = {}
 _surf_size_total = 0
 _unrotated_size = {}
 _tick = 0
-def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, italic=None,
-	underline=None, width=None, widthem=None, strip=None, color=None,
-	background=None, antialias=True, ocolor=None, owidth=None, scolor=None, shadow=None,
-	gcolor=None, shade=None, alpha=1.0, align=None, lineheight=None, pspace=None, angle=0,
-	cache=True):
+def getsurf(text, **kwargs):
 	global _tick, _surf_size_total
-	if fontname is None: fontname = DEFAULT_FONT_NAME
-	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
-	fontsize = int(round(fontsize))
-	if align is None: align = DEFAULT_ALIGN
-	if align in ["left", "center", "right"]:
-		align = [0, 0.5, 1][["left", "center", "right"].index(align)]
-	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
-	if pspace is None: pspace = DEFAULT_PARAGRAPH_SPACE
-	color = _resolvecolor(color, DEFAULT_COLOR)
-	background = _resolvecolor(background, DEFAULT_BACKGROUND)
-	gcolor = _resolvecolor(gcolor, None)
-	if shade is None: shade = DEFAULT_SHADE
-	if shade:
-		gcolor = _applyshade(gcolor or color, shade)
-		shade = 0
-	ocolor = None if owidth is None else _resolvecolor(ocolor, DEFAULT_OUTLINE_COLOR)
-	scolor = None if shadow is None else _resolvecolor(scolor, DEFAULT_SHADOW_COLOR)
-	opx = None if owidth is None else ceil(owidth * fontsize * OUTLINE_UNIT)
-	spx = None if shadow is None else tuple(ceil(s * fontsize * SHADOW_UNIT) for s in shadow)
-	alpha = _resolvealpha(alpha)
-	angle = _resolveangle(angle)
-	strip = DEFAULT_STRIP if strip is None else strip
-	key = (text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem, strip,
-		color, background, antialias, ocolor, opx, scolor, spx, gcolor, alpha, align, lineheight,
-		pspace, angle)
+	options = _GetsurfOptions(**kwargs)
+	key = text, options.key()
+
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
 		return _surf_cache[key]
-	texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline,
-		width=width, widthem=widthem, strip=strip)
-	if angle:
-		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, strip, color, background, antialias,
-			ocolor, owidth, scolor, shadow, gcolor, 0, alpha, align, lineheight, pspace,
-			cache=cache)
-		if angle in (90, 180, 270):
-			surf = pygame.transform.rotate(surf0, angle)
+	texts = wrap(text, options.fontname, options.fontsize, options.sysfontname, options.bold, options.italic, options.underline,
+		width=options.width, widthem=options.widthem, strip=options.strip)
+	if options.angle:
+		surf0 = getsurf(text, **options.update(angle = 0))
+		if options.angle in (90, 180, 270):
+			surf = pygame.transform.rotate(surf0, options.angle)
 		else:
-			surf = pygame.transform.rotozoom(surf0, angle, 1.0)
-		_unrotated_size[(surf.get_size(), angle, text)] = surf0.get_size()
-	elif alpha < 1.0:
-		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, strip, color, background, antialias,
-			ocolor, owidth, scolor, shadow, gcolor=gcolor, shade=0, align=align,
-			lineheight=lineheight, pspace=pspace, cache=cache)
+			surf = pygame.transform.rotozoom(surf0, options.angle, 1.0)
+		_unrotated_size[(surf.get_size(), options.angle, text)] = surf0.get_size()
+	elif options.alpha < 1.0:
+		surf0 = getsurf(text, **options.update(alpha = 1.0))
 		surf = surf0.copy()
 		array = pygame.surfarray.pixels_alpha(surf)
-		array[:,:] = (array[:,:] * alpha).astype(array.dtype)
+		array[:,:] = (array[:,:] * options.alpha).astype(array.dtype)
 		del array
-	elif spx is not None:
-		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, strip, color=color, background=(0,0,0,0), antialias=antialias,
-			gcolor=gcolor, shade=0, align=align, lineheight=lineheight, pspace=pspace, cache=cache)
-		ssurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, strip, color=scolor, background=(0,0,0,0), antialias=antialias,
-			align=align, lineheight=lineheight, pspace=pspace, cache=cache)
+	elif options._spx is not None:
+		surf0 = getsurf(text, **options.update(background = (0, 0, 0, 0), shadow = None, scolor = None))
+		ssurf = getsurf(text, **options.update(background = (0, 0, 0, 0), color = options.scolor, shadow = None, scolor = None, gcolor = None))
 		w0, h0 = surf0.get_size()
-		sx, sy = spx
+		sx, sy = options._spx
 		surf = pygame.Surface((w0 + abs(sx), h0 + abs(sy))).convert_alpha()
-		surf.fill(background or (0, 0, 0, 0))
+		surf.fill(options.background or (0, 0, 0, 0))
 		dx, dy = max(sx, 0), max(sy, 0)
 		surf.blit(ssurf, (dx, dy))
 		x0, y0 = abs(sx) - dx, abs(sy) - dy
-		if len(color) > 3 and color[3] == 0:
+		if len(options.color) > 3 and options.color[3] == 0:
 			array = pygame.surfarray.pixels_alpha(surf)
 			array0 = pygame.surfarray.pixels_alpha(surf0)
 			array[x0:x0+w0,y0:y0+h0] -= array0.clip(max=array[x0:x0+w0,y0:y0+h0])
 			del array, array0
 		else:
 			surf.blit(surf0, (x0, y0))
-	elif opx is not None:
-		surf0 = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, strip, color=color, background=(0,0,0,0), antialias=antialias,
-			gcolor=gcolor, shade=0, align=align, lineheight=lineheight, pspace=pspace, cache=cache)
-		osurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline,
-			width, widthem, strip, color=ocolor, background=(0,0,0,0), antialias=antialias,
-			align=align, lineheight=lineheight, pspace=pspace, cache=cache)
+	elif options._opx is not None:
+		surf0 = getsurf(text, **options.update(ocolor = None, owidth = None))
+		osurf = getsurf(text, **options.update(color = options.ocolor, ocolor = None, owidth = None, background = (0,0,0,0), gcolor = None))
 		w0, h0 = surf0.get_size()
+		opx = options._opx
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()
-		surf.fill(background or (0, 0, 0, 0))
+		surf.fill(options.background or (0, 0, 0, 0))
 		for dx, dy in _circlepoints(opx):
 			surf.blit(osurf, (dx + opx, dy + opx))
-		if len(color) > 3 and color[3] == 0:
+		if len(options.color) > 3 and options.color[3] == 0:
 			array = pygame.surfarray.pixels_alpha(surf)
 			array0 = pygame.surfarray.pixels_alpha(surf0)
 			array[opx:-opx,opx:-opx] -= array0.clip(max=array[opx:-opx,opx:-opx])
@@ -395,35 +397,35 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 		else:
 			surf.blit(surf0, (opx, opx))
 	else:
-		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
+		font = getfont(options.fontname, options.fontsize, options.sysfontname, options.bold, options.italic, options.underline)
 		# pygame.Font.render does not allow passing None as an argument value for background.
-		if background is None or (len(background) > 3 and background[3] == 0) or gcolor is not None:
-			lsurfs = [font.render(text, antialias, color).convert_alpha() for text, jpara in texts]
+		if options.background is None or (len(options.background) > 3 and options.background[3] == 0) or options.gcolor is not None:
+			lsurfs = [font.render(text, options.antialias, options.color).convert_alpha() for text, jpara in texts]
 		else:
-			lsurfs = [font.render(text, antialias, color, background).convert_alpha() for text, jpara in texts]
-		if gcolor is not None:
+			lsurfs = [font.render(text, options.antialias, options.color, options.background).convert_alpha() for text, jpara in texts]
+		if options.gcolor is not None:
 			import numpy
 			m = numpy.clip(numpy.arange(lsurfs[0].get_height()) * 2.0 / font.get_ascent() - 1.0, 0, 1)
 			for lsurf in lsurfs:
 				array = pygame.surfarray.pixels3d(lsurf)
 				for j in (0, 1, 2):
-					array[:,:,j] = ((1.0 - m) * array[:,:,j] + m * gcolor[j]).astype(array.dtype)
+					array[:,:,j] = ((1.0 - m) * array[:,:,j] + m * options.gcolor[j]).astype(array.dtype)
 				del array
 
-		if len(lsurfs) == 1 and gcolor is None:
+		if len(lsurfs) == 1 and options.gcolor is None:
 			surf = lsurfs[0]
 		else:
 			w = max(lsurf.get_width() for lsurf in lsurfs)
-			linesize = font.get_linesize() * lineheight
-			parasize = font.get_linesize() * pspace
+			linesize = font.get_linesize() * options.lineheight
+			parasize = font.get_linesize() * options.pspace
 			ys = [int(round(k * linesize + jpara * parasize)) for k, (text, jpara) in enumerate(texts)]
 			h = ys[-1] + font.get_height()
 			surf = pygame.Surface((w, h)).convert_alpha()
-			surf.fill(background or (0, 0, 0, 0))
+			surf.fill(options.background or (0, 0, 0, 0))
 			for y, lsurf in zip(ys, lsurfs):
-				x = int(round(align * (w - lsurf.get_width())))
+				x = int(round(options.align * (w - lsurf.get_width())))
 				surf.blit(lsurf, (x, y))
-	if cache:
+	if options.cache:
 		w, h = surf.get_size()
 		_surf_size_total += 4 * w * h
 		_surf_cache[key] = surf
@@ -453,10 +455,7 @@ def _blitpos(angle, pos, anchor, tsurf, text):
 def draw(text, pos=None, **kwargs):
 	options = _DrawOptions(pos = pos, **kwargs)
 
-	tsurf = getsurf(text, options.fontname, options.fontsize, options.sysfontname, options.bold, options.italic, options.underline, options.width, options.widthem,
-		options.strip, options.color, options.background, options.antialias, options.ocolor, options.owidth, options.scolor, options.shadow, options.gcolor,\
-		options.shade, options.alpha,
-		options.align, options.lineheight, options.pspace, options.angle, options.cache)
+	tsurf = getsurf(text, **options.togetsurfoptions())
 
 	pos = _blitpos(options.angle, options.pos, options.anchor, tsurf, text)
 
