@@ -8,6 +8,7 @@
 from __future__ import division
 
 from math import ceil, sin, cos, radians, exp
+from collections import namedtuple
 import pygame
 
 DEFAULT_FONT_SIZE = 24
@@ -34,6 +35,100 @@ MEMORY_LIMIT_MB = 64
 MEMORY_REDUCTION_FACTOR = 0.5
 
 pygame.font.init()
+
+
+# Options object base class.
+# Specify valid fields in the _fields list. Unspecified fields default to None, unless otherwise
+# specified in the _defaults list.
+class _Options(object):
+	_fields = ()
+	_defaults = {}
+	def __init__(self, **kwargs):
+		fields = set(self._fields) | set(self._defaults)
+		badfields = set(kwargs) - fields
+		if badfields:
+			raise ValueError("Unrecognized args: " + ", ".join(badfields))
+		for field in fields:
+			value = kwargs[field] if field in kwargs else self._defaults.get(field)
+			setattr(self, field, value)
+
+# Decorator class to allow options objects to have default values.
+# Apply an instance of this class as a decorator to a namedtuple in order to have all of its fields
+# default to None. Optionally specify default vaules for each field with a dict mapping field name
+# to default value.
+
+
+_default_surf_sentinel = ()
+
+# Options argument for the draw function. Specifies both text styling and positioning.
+class _DrawOptions(_Options):
+	_fields = ("pos",
+		"fontname", "fontsize", "sysfontname",
+		"antialias", "bold", "italic", "underline",
+		"color", "background",
+		"top", "left", "bottom", "right",
+		"topleft", "bottomleft", "topright", "bottomright",
+		"midtop", "midleft", "midbottom", "midright",
+		"center", "centerx", "centery",
+		"width", "widthem", "lineheight", "pspace", "strip",
+		"align",
+		"owidth", "ocolor",
+		"shadow", "scolor",
+		"gcolor", "shade",
+		"alpha",
+		"anchor",
+		"angle",
+		"surf",
+		"cache")
+	_defaults = {
+		"antialias": True, "alpha": 1.0, "angle": 0,
+		"surf": _default_surf_sentinel, "cache": True }
+
+	def __init__(self, **kwargs):
+		_Options.__init__(self, **kwargs)
+		self.expandposition()
+		self.expandanchor()
+		self.resolvesurf()
+
+	# Expand each 2-element position specifier and overwrite the corresponding 1-element
+	# position specifiers.
+	def expandposition(self):
+		if self.topleft: self.left, self.top = self.topleft
+		if self.bottomleft: self.left, self.bottom = self.bottomleft
+		if self.topright: self.right, self.top = self.topright
+		if self.bottomright: self.right, self.bottom = self.bottomright
+		if self.midtop: self.centerx, self.top = self.midtop
+		if self.midleft: self.left, self.centery = self.midleft
+		if self.midbottom: self.centerx, self.bottom = self.midbottom
+		if self.midright: self.right, self.centery = self.midright
+		if self.center: self.centerx, self.centery = self.center
+
+	# Update the pos and anchor fields, if unspecified, to be specified by the positional
+	# keyword arguments.
+	def expandanchor(self):
+		x, y = self.pos or (None, None)
+		hanchor, vanchor = self.anchor or (None, None)
+		if self.left is not None: x, hanchor = self.left, 0
+		if self.centerx is not None: x, hanchor = self.centerx, 0.5
+		if self.right is not None: x, hanchor = self.right, 1
+		if self.top is not None: y, vanchor = self.top, 0
+		if self.centery is not None: y, vanchor = self.centery, 0.5
+		if self.bottom is not None: y, vanchor = self.bottom, 1
+		if x is None:
+			raise ValueError("Unable to determine horizontal position")
+		if y is None:
+			raise ValueError("Unable to determine vertical position")
+		self.pos = x, y
+
+		if self.align is None: self.align = hanchor
+		if hanchor is None: hanchor = DEFAULT_ANCHOR[0]
+		if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
+		self.anchor = hanchor, vanchor
+
+	# Unspecified surf values default to the display surface.
+	def resolvesurf(self):
+		if self.surf is _default_surf_sentinel:
+			self.surf = pygame.display.get_surface()
 
 _font_cache = {}
 def getfont(fontname=None, fontsize=None, sysfontname=None,
@@ -336,57 +431,11 @@ def getsurf(text, fontname=None, fontsize=None, sysfontname=None, bold=None, ita
 		_tick += 1
 	return surf
 
-_default_surf_sentinel = ()
-def draw(text, pos=None,
-	fontname=None, fontsize=None, sysfontname=None,
-	antialias=True, bold=None, italic=None, underline=None,
-	color=None, background=None, 
-	top=None, left=None, bottom=None, right=None,
-	topleft=None, bottomleft=None, topright=None, bottomright=None,
-	midtop=None, midleft=None, midbottom=None, midright=None,
-	center=None, centerx=None, centery=None,
-	width=None,	widthem=None, lineheight=None, pspace=None, strip=None,
-	align=None,
-	owidth=None, ocolor=None,
-	shadow=None, scolor=None,
-	gcolor=None, shade=None,
-	alpha=1.0,
-	anchor=None,
-	angle=0,
-	surf=_default_surf_sentinel,
-	cache=True):
-	
-	if topleft: left, top = topleft
-	if bottomleft: left, bottom = bottomleft
-	if topright: right, top = topright
-	if bottomright: right, bottom = bottomright
-	if midtop: centerx, top = midtop
-	if midleft: left, centery = midleft
-	if midbottom: centerx, bottom = midbottom
-	if midright: right, centery = midright
-	if center: centerx, centery = center
-
-	x, y = pos or (None, None)
-	hanchor, vanchor = anchor or (None, None)
-	if left is not None: x, hanchor = left, 0
-	if centerx is not None: x, hanchor = centerx, 0.5
-	if right is not None: x, hanchor = right, 1
-	if top is not None: y, vanchor = top, 0
-	if centery is not None: y, vanchor = centery, 0.5
-	if bottom is not None: y, vanchor = bottom, 1
-	if x is None:
-		raise ValueError("Unable to determine horizontal position")
-	if y is None:
-		raise ValueError("Unable to determine vertical position")
-
-	if align is None: align = hanchor
-	if hanchor is None: hanchor = DEFAULT_ANCHOR[0]
-	if vanchor is None: vanchor = DEFAULT_ANCHOR[1]
-
-	tsurf = getsurf(text, fontname, fontsize, sysfontname, bold, italic, underline, width, widthem,
-		strip, color, background, antialias, ocolor, owidth, scolor, shadow, gcolor, shade, alpha,
-		align, lineheight, pspace, angle, cache)
-	angle = _resolveangle(angle)
+# The actual position on the screen where the surf is to be blitted, rather than the specified
+# anchor position.
+def _blitpos(angle, pos, anchor, tsurf, text):
+	x, y = pos
+	hanchor, vanchor = anchor
 	if angle:
 		w0, h0 = _unrotated_size[(tsurf.get_size(), angle, text)]
 		S, C = sin(radians(angle)), cos(radians(angle))
@@ -398,16 +447,26 @@ def draw(text, pos=None,
 		y -= vanchor * tsurf.get_height()
 	x = int(round(x))
 	y = int(round(y))
+	return x, y
 
-	if surf is _default_surf_sentinel:
-		surf = pygame.display.get_surface()
-	if surf is not None:
-		surf.blit(tsurf, (x, y))
+
+def draw(text, pos=None, **kwargs):
+	options = _DrawOptions(pos = pos, **kwargs)
+
+	tsurf = getsurf(text, options.fontname, options.fontsize, options.sysfontname, options.bold, options.italic, options.underline, options.width, options.widthem,
+		options.strip, options.color, options.background, options.antialias, options.ocolor, options.owidth, options.scolor, options.shadow, options.gcolor,\
+		options.shade, options.alpha,
+		options.align, options.lineheight, options.pspace, options.angle, options.cache)
+
+	pos = _blitpos(options.angle, options.pos, options.anchor, tsurf, text)
+
+	if options.surf is not None:
+		options.surf.blit(tsurf, pos)
 	
 	if AUTO_CLEAN:
 		clean()
 
-	return tsurf, (x, y)
+	return tsurf, pos
 
 def drawbox(text, rect, fontname=None, sysfontname=None, lineheight=None, pspace=None, anchor=None,
 	bold=None, italic=None, underline=None, strip=None, **kwargs):
