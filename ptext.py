@@ -58,29 +58,24 @@ class _Options(object):
 		kwargs = { field: getattr(self, field) for field in self._allfields() }
 		kwargs.update(**newkwargs)
 		return kwargs
+	def key(self):
+		return tuple(getattr(self, field) for field in sorted(self._allfields()))
+	def getsuboptions(self, optclass):
+		return { field: getattr(self, field) for field in optclass._allfields() if hasattr(self, field) }
+
 
 _default_surf_sentinel = ()
 
 # Options argument for the draw function. Specifies both text styling and positioning.
 class _DrawOptions(_Options):
 	_fields = ("pos",
-		"fontname", "fontsize", "sysfontname",
-		"antialias", "bold", "italic", "underline",
+		"fontname", "fontsize", "sysfontname", "antialias", "bold", "italic", "underline",
 		"color", "background",
-		"top", "left", "bottom", "right",
-		"topleft", "bottomleft", "topright", "bottomright",
-		"midtop", "midleft", "midbottom", "midright",
-		"center", "centerx", "centery",
-		"width", "widthem", "lineheight", "pspace", "strip",
-		"align",
-		"owidth", "ocolor",
-		"shadow", "scolor",
-		"gcolor", "shade",
-		"alpha",
-		"anchor",
-		"angle",
-		"surf",
-		"cache")
+		"top", "left", "bottom", "right", "topleft", "bottomleft", "topright", "bottomright",
+		"midtop", "midleft", "midbottom", "midright", "center", "centerx", "centery",
+		"width", "widthem", "lineheight", "pspace", "strip", "align",
+		"owidth", "ocolor", "shadow", "scolor", "gcolor", "shade",
+		"alpha", "anchor", "angle", "surf", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0,
 		"surf": _default_surf_sentinel, "cache": True }
@@ -132,7 +127,29 @@ class _DrawOptions(_Options):
 			self.surf = pygame.display.get_surface()
 
 	def togetsurfoptions(self):
-		return { field: getattr(self, field) for field in _GetsurfOptions._allfields() }
+		return self.getsuboptions(_GetsurfOptions)
+
+class _DrawboxOptions(_Options):
+	_fields = (
+		"fontname", "sysfontname", "antialias", "bold", "italic", "underline",
+		"color", "background",
+		"lineheight", "pspace", "strip", "align",
+		"owidth", "ocolor", "shadow", "scolor", "gcolor", "shade",
+		"alpha", "anchor", "angle", "surf", "cache")
+	_defaults = {
+		"antialias": True, "alpha": 1.0, "angle": 0, "anchor": (0.5, 0.5),
+		"surf": _default_surf_sentinel, "cache": True }
+	def __init__(self, **kwargs):
+		_Options.__init__(self, **kwargs)
+		if self.fontname is None: self.fontname = DEFAULT_FONT_NAME
+		if self.lineheight is None: self.lineheight = DEFAULT_LINE_HEIGHT
+		if self.pspace is None: self.pspace = DEFAULT_PARAGRAPH_SPACE
+
+	def todrawoptions(self):
+		return self.getsuboptions(_DrawOptions)
+
+	def tofitsizeoptions(self):
+		return self.getsuboptions(_FitsizeOptions)
 
 
 class _GetsurfOptions(_Options):
@@ -167,53 +184,86 @@ class _GetsurfOptions(_Options):
 		self.angle = _resolveangle(self.angle)
 		self.strip = DEFAULT_STRIP if self.strip is None else self.strip
 
-	def key(self):
-		return tuple(getattr(self, field) for field in sorted(self._allfields()))
+	def towrapoptions(self):
+		return self.getsuboptions(_WrapOptions)
 
+	def togetfontoptions(self):
+		return self.getsuboptions(_GetfontOptions)
+
+
+class _WrapOptions(_Options):
+	_fields = ("fontname", "fontsize", "sysfontname",
+		"bold", "italic", "underline", "width", "widthem", "strip")
+
+	def __init__(self, **kwargs):
+		_Options.__init__(self, **kwargs)
+		if self.widthem is not None and self.width is not None:
+			raise ValueError("Can't set both width and widthem")
+
+		if self.widthem is not None:
+			self.width = self.widthem * REFERENCE_FONT_SIZE
+			self.fontsize = REFERENCE_FONT_SIZE
+
+		if self.strip is None:
+			self.strip = DEFAULT_STRIP
+
+	def togetfontoptions(self):
+		return self.getsuboptions(_GetfontOptions)
+
+	
+class _GetfontOptions(_Options):
+	_fields = ("fontname", "fontsize", "sysfontname", "bold", "italic", "underline")
+	def __init__(self, **kwargs):
+		_Options.__init__(self, **kwargs)
+		if self.fontname is not None and self.sysfontname is not None:
+			raise ValueError("Can't set both fontname and sysfontname")
+		if self.fontname is None and self.sysfontname is None:
+			fontname = DEFAULT_FONT_NAME
+		if self.fontsize is None:
+			self.fontsize = DEFAULT_FONT_SIZE
+	def getfontpath(self):
+		return self.fontname if self.fontname is None else FONT_NAME_TEMPLATE % self.fontname
+
+class _FitsizeOptions(_Options):
+	_fields = ("fontname", "sysfontname", "bold", "italic", "underline",
+		"lineheight", "pspace", "strip")
+
+	def togetfontoptions(self):
+		return self.getsuboptions(_GetfontOptions)
+
+	def towrapoptions(self):
+		return self.getsuboptions(_WrapOptions)
 
 _font_cache = {}
-def getfont(fontname=None, fontsize=None, sysfontname=None,
-	bold=None, italic=None, underline=None):
-	if fontname is not None and sysfontname is not None:
-		raise ValueError("Can't set both fontname and sysfontname")
-	if fontname is None and sysfontname is None: fontname = DEFAULT_FONT_NAME
-	if fontsize is None: fontsize = DEFAULT_FONT_SIZE
-	key = fontname, fontsize, sysfontname, bold, italic, underline
+def getfont(**kwargs):
+	options = _GetfontOptions(**kwargs)
+	key = options.key()
 	if key in _font_cache: return _font_cache[key]
-	if sysfontname is not None:
-		font = pygame.font.SysFont(sysfontname, fontsize, bold or False, italic or False)
+	if options.sysfontname is not None:
+		font = pygame.font.SysFont(options.sysfontname, options.fontsize, options.bold or False, options.italic or False)
 	else:
-		if fontname is not None: fontname = FONT_NAME_TEMPLATE % fontname
 		try:
-			font = pygame.font.Font(fontname, fontsize)
+			font = pygame.font.Font(options.getfontpath(), options.fontsize)
 		except IOError:
-			raise IOError("unable to read font filename: %s" % fontname)
-	if bold is not None:
-		font.set_bold(bold)
-	if italic is not None:
-		font.set_italic(italic)
-	if underline is not None:
-		font.set_underline(underline)
+			raise IOError("unable to read font filename: %s" % options.getfontpath())
+	if options.bold is not None:
+		font.set_bold(options.bold)
+	if options.italic is not None:
+		font.set_italic(options.italic)
+	if options.underline is not None:
+		font.set_underline(options.underline)
 	_font_cache[key] = font
 	return font
 
-def wrap(text, fontname=None, fontsize=None, sysfontname=None,
-	bold=None, italic=None, underline=None, width=None, widthem=None, strip=None):
-	if widthem is None:
-		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
-	elif width is not None:
-		raise ValueError("Can't set both width and widthem")
-	else:
-		font = getfont(fontname, REFERENCE_FONT_SIZE, sysfontname, bold, italic, underline)
-		width = widthem * REFERENCE_FONT_SIZE
-	if strip is None:
-		strip = DEFAULT_STRIP
+def wrap(text, **kwargs):
+	options = _WrapOptions(**kwargs)
+	font = getfont(**options.togetfontoptions())
 	paras = text.replace("\t", "    ").split("\n")
 	lines = []
 	for jpara, para in enumerate(paras):
-		if strip:
+		if options.strip:
 			para = para.rstrip(" ")
-		if width is None:
+		if options.width is None:
 			lines.append((para, jpara))
 			continue
 		if not para:
@@ -230,7 +280,7 @@ def wrap(text, fontname=None, fontsize=None, sysfontname=None,
 			if " " not in para[a+1:]:
 				b = len(para)
 				bline = para
-			elif strip:
+			elif options.strip:
 				# Lines may be split at any space character that immediately follows a non-space
 				# character.
 				b = para.index(" ", a + 1)
@@ -246,42 +296,47 @@ def wrap(text, fontname=None, fontsize=None, sysfontname=None,
 				# a space character.
 				b = a + 1 if para[a] == " " else para.index(" ", a + 1)
 			bline = para[:b]
-			if font.size(bline)[0] <= width:
+			if font.size(bline)[0] <= options.width:
 				a, line = b, bline
 			else:
 				lines.append((line, jpara))
-				para = para[a:].lstrip(" ") if strip else para[a:]
+				para = para[a:].lstrip(" ") if options.strip else para[a:]
 				a = para.index(" ", 1) if " " in para[1:] else len(para)
 				line = para[:a]
 		if para:
 			lines.append((line, jpara))
 	return lines
 
+
+# Return the largest integer in the range [xmin, xmax] such that f(x) is True.
+def _binarysearch(f, xmin = 1, xmax = 256):
+	if not f(xmin): return xmin
+	if f(xmax): return xmax
+	# xmin is the largest known value for which f(x) is True
+	# xmax is the smallest known value for which f(x) is False
+	while xmax - xmin > 1:
+		x = (xmax + xmin) // 2
+		if f(x):
+			xmin = x
+		else:
+			xmax = x
+	return xmin
+
 _fit_cache = {}
-def _fitsize(text, fontname, sysfontname, bold, italic, underline, width, height, lineheight, pspace, strip):
-	key = text, fontname, sysfontname, bold, italic, underline, width, height, lineheight, pspace, strip
+def _fitsize(text, size, **kwargs):
+	options = _FitsizeOptions(**kwargs)
+	key = text, size, options.key()
 	if key in _fit_cache: return _fit_cache[key]
+	width, height = size
 	def fits(fontsize):
-		texts = wrap(text, fontname, fontsize, sysfontname, bold, italic, underline, width, strip)
-		font = getfont(fontname, fontsize, sysfontname, bold, italic, underline)
+		texts = wrap(text, fontsize=fontsize, width=width, **options.towrapoptions())
+		font = getfont(fontsize=fontsize, **options.togetfontoptions())
 		w = max(font.size(line)[0] for line, jpara in texts)
-		linesize = font.get_linesize() * lineheight
-		paraspace = font.get_linesize() * pspace
+		linesize = font.get_linesize() * options.lineheight
+		paraspace = font.get_linesize() * options.pspace
 		h = int(round((len(texts) - 1) * linesize + texts[-1][1] * paraspace)) + font.get_height()
 		return w <= width and h <= height
-	a, b = 1, 256
-	if not fits(a):
-		fontsize = a
-	elif fits(b):
-		fontsize = b
-	else:
-		while b - a > 1:
-			c = (a + b) // 2
-			if fits(c):
-				a = c
-			else:
-				b = c
-		fontsize = a
+	fontsize = _binarysearch(fits)
 	_fit_cache[key] = fontsize
 	return fontsize
 
@@ -334,6 +389,22 @@ def _circlepoints(r):
 	points.sort()
 	return points
 
+# Rotate the given surface by the given angle, in degrees.
+# If angle is an exact multiple of 90, use pygame.transform.rotate, otherwise fall back to
+# pygame.transform.rotozoom.
+def _rotatesurf(surf, angle):
+	if angle in (90, 180, 270):
+		return pygame.transform.rotate(surf, angle)
+	else:
+		return pygame.transform.rotozoom(surf, angle, 1.0)
+
+def _fadesurf(surf, alpha):
+	surf = surf.copy()
+	array = pygame.surfarray.pixels_alpha(surf)
+	array[:,:] = (array[:,:] * alpha).astype(array.dtype)
+	del array
+	return surf
+
 _surf_cache = {}
 _surf_tick_usage = {}
 _surf_size_total = 0
@@ -348,21 +419,13 @@ def getsurf(text, **kwargs):
 		_surf_tick_usage[key] = _tick
 		_tick += 1
 		return _surf_cache[key]
-	texts = wrap(text, options.fontname, options.fontsize, options.sysfontname, options.bold, options.italic, options.underline,
-		width=options.width, widthem=options.widthem, strip=options.strip)
+	texts = wrap(text, **options.towrapoptions())
 	if options.angle:
 		surf0 = getsurf(text, **options.update(angle = 0))
-		if options.angle in (90, 180, 270):
-			surf = pygame.transform.rotate(surf0, options.angle)
-		else:
-			surf = pygame.transform.rotozoom(surf0, options.angle, 1.0)
+		surf = _rotatesurf(surf0, options.angle)
 		_unrotated_size[(surf.get_size(), options.angle, text)] = surf0.get_size()
 	elif options.alpha < 1.0:
-		surf0 = getsurf(text, **options.update(alpha = 1.0))
-		surf = surf0.copy()
-		array = pygame.surfarray.pixels_alpha(surf)
-		array[:,:] = (array[:,:] * options.alpha).astype(array.dtype)
-		del array
+		surf = _fadesurf(getsurf(text, **options.update(alpha = 1.0)), options.alpha)
 	elif options._spx is not None:
 		surf0 = getsurf(text, **options.update(background = (0, 0, 0, 0), shadow = None, scolor = None))
 		ssurf = getsurf(text, **options.update(background = (0, 0, 0, 0), color = options.scolor, shadow = None, scolor = None, gcolor = None))
@@ -397,7 +460,7 @@ def getsurf(text, **kwargs):
 		else:
 			surf.blit(surf0, (opx, opx))
 	else:
-		font = getfont(options.fontname, options.fontsize, options.sysfontname, options.bold, options.italic, options.underline)
+		font = getfont(**options.togetfontoptions())
 		# pygame.Font.render does not allow passing None as an argument value for background.
 		if options.background is None or (len(options.background) > 3 and options.background[3] == 0) or options.gcolor is not None:
 			lsurfs = [font.render(text, options.antialias, options.color).convert_alpha() for text, jpara in texts]
@@ -454,32 +517,22 @@ def _blitpos(angle, pos, anchor, tsurf, text):
 
 def draw(text, pos=None, **kwargs):
 	options = _DrawOptions(pos = pos, **kwargs)
-
 	tsurf = getsurf(text, **options.togetsurfoptions())
-
 	pos = _blitpos(options.angle, options.pos, options.anchor, tsurf, text)
-
 	if options.surf is not None:
 		options.surf.blit(tsurf, pos)
-	
 	if AUTO_CLEAN:
 		clean()
-
 	return tsurf, pos
 
-def drawbox(text, rect, fontname=None, sysfontname=None, lineheight=None, pspace=None, anchor=None,
-	bold=None, italic=None, underline=None, strip=None, **kwargs):
-	if fontname is None: fontname = DEFAULT_FONT_NAME
-	if lineheight is None: lineheight = DEFAULT_LINE_HEIGHT
-	if pspace is None: pspace = DEFAULT_PARAGRAPH_SPACE
-	hanchor, vanchor = anchor = anchor or (0.5, 0.5)
+def drawbox(text, rect, **kwargs):
+	options = _DrawboxOptions(**kwargs)
 	rect = pygame.Rect(rect)
+	hanchor, vanchor = options.anchor
 	x = rect.x + hanchor * rect.width
 	y = rect.y + vanchor * rect.height
-	fontsize = _fitsize(text, fontname, sysfontname, bold, italic, underline,
-		rect.width, rect.height, lineheight, pspace, strip)
-	return draw(text, (x, y), fontname=fontname, fontsize=fontsize, lineheight=lineheight,
-		pspace=pspace, width=rect.width, strip=strip, anchor=anchor, **kwargs)
+	fontsize = _fitsize(text, rect.size, **options.tofitsizeoptions())
+	return draw(text, pos=(x,y), width=rect.width, fontsize=fontsize, **options.todrawoptions())
 
 def clean():
 	global _surf_size_total
