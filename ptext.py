@@ -412,6 +412,9 @@ def _fadesurf(surf, alpha):
 	surf.blit(asurf, (0, 0), None, pygame.BLEND_RGBA_MULT)
 	return surf
 
+def _istransparent(color):
+	return len(color) > 3 and color[3] == 0
+
 # Produce a 1xh Surface with the given color gradient.
 _grad_cache = {}
 def _gradsurf(h, y0, y1, color0, color1):
@@ -456,7 +459,8 @@ def getsurf(text, **kwargs):
 	elif options.alpha < 1.0:
 		surf = _fadesurf(getsurf(text, **options.update(alpha = 1.0)), options.alpha)
 	elif options._spx is not None:
-		surf0 = getsurf(text, **options.update(background = (0, 0, 0, 0), shadow = None, scolor = None))
+		color = (0, 0, 0) if _istransparent(options.color) else options.color
+		surf0 = getsurf(text, **options.update(background = (0, 0, 0, 0), color = color, shadow = None, scolor = None))
 		ssurf = getsurf(text, **options.update(background = (0, 0, 0, 0), color = options.scolor, shadow = None, scolor = None, gcolor = None))
 		w0, h0 = surf0.get_size()
 		sx, sy = options._spx
@@ -465,15 +469,13 @@ def getsurf(text, **kwargs):
 		dx, dy = max(sx, 0), max(sy, 0)
 		surf.blit(ssurf, (dx, dy))
 		x0, y0 = abs(sx) - dx, abs(sy) - dy
-		if len(options.color) > 3 and options.color[3] == 0:
-			array = pygame.surfarray.pixels_alpha(surf)
-			array0 = pygame.surfarray.pixels_alpha(surf0)
-			array[x0:x0+w0,y0:y0+h0] -= array0.clip(max=array[x0:x0+w0,y0:y0+h0])
-			del array, array0
+		if _istransparent(options.color):
+			surf.blit(surf0, (x0, y0), None, pygame.BLEND_RGBA_SUB)
 		else:
 			surf.blit(surf0, (x0, y0))
 	elif options._opx is not None:
-		surf0 = getsurf(text, **options.update(ocolor = None, owidth = None))
+		color = (0, 0, 0) if _istransparent(options.color) else options.color
+		surf0 = getsurf(text, **options.update(color = color, ocolor = None, owidth = None))
 		osurf = getsurf(text, **options.update(color = options.ocolor, ocolor = None, owidth = None, background = (0,0,0,0), gcolor = None))
 		w0, h0 = surf0.get_size()
 		opx = options._opx
@@ -481,11 +483,8 @@ def getsurf(text, **kwargs):
 		surf.fill(options.background or (0, 0, 0, 0))
 		for dx, dy in _circlepoints(opx):
 			surf.blit(osurf, (dx + opx, dy + opx))
-		if len(options.color) > 3 and options.color[3] == 0:
-			array = pygame.surfarray.pixels_alpha(surf)
-			array0 = pygame.surfarray.pixels_alpha(surf0)
-			array[opx:-opx,opx:-opx] -= array0.clip(max=array[opx:-opx,opx:-opx])
-			del array, array0
+		if _istransparent(options.color):
+			surf.blit(surf0, (opx, opx), None, pygame.BLEND_RGBA_SUB)
 		else:
 			surf.blit(surf0, (opx, opx))
 	else:
