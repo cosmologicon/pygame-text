@@ -5,7 +5,7 @@
 # Please see README.md for explanation of options.
 # https://github.com/cosmologicon/pygame-text
 
-from __future__ import division
+from __future__ import division, print_function
 
 from math import ceil, sin, cos, radians, exp
 from collections import namedtuple
@@ -36,8 +36,10 @@ MEMORY_REDUCTION_FACTOR = 0.5
 
 pygame.font.init()
 
+# Options objects encapsulate the keyword arguments to functions that take a lot of keyword
+# arguments.
 
-# Options object base class.
+# Options object base class. Subclass for Options objects specific to different functions.
 # Specify valid fields in the _fields list. Unspecified fields default to None, unless otherwise
 # specified in the _defaults list.
 class _Options(object):
@@ -340,6 +342,10 @@ def _fitsize(text, size, **kwargs):
 	_fit_cache[key] = fontsize
 	return fontsize
 
+# Returns the color as a color RGB or RGBA tuple (i.e. 3 or 4 integers in the range 0-255)
+# If color is None, fall back to the default. If default is also None, return None.
+# Both color and default can be a list, tuple, a color name, an HTML color format string, a hex
+# number string, or an integer pixel value. See pygame.Color constructor for specification.
 def _resolvecolor(color, default):
 	if color is None: color = default
 	if color is None: return None
@@ -398,12 +404,35 @@ def _rotatesurf(surf, angle):
 	else:
 		return pygame.transform.rotozoom(surf, angle, 1.0)
 
+# Apply the given alpha value to a copy of the Surface.
 def _fadesurf(surf, alpha):
 	surf = surf.copy()
-	array = pygame.surfarray.pixels_alpha(surf)
-	array[:,:] = (array[:,:] * alpha).astype(array.dtype)
-	del array
+	asurf = surf.copy()
+	asurf.fill((255, 255, 255, int(round(255 * alpha))))
+	surf.blit(asurf, (0, 0), None, pygame.BLEND_RGBA_MULT)
 	return surf
+
+# Produce a 1xh Surface with the given color gradient.
+_grad_cache = {}
+def _gradsurf(h, y0, y1, color0, color1):
+	key = h, y0, y1, color0, color1
+	if key in _grad_cache:
+		return _grad_cache[key]
+	surf = pygame.Surface((1, h)).convert_alpha()
+	r0, g0, b0 = color0[:3]
+	r1, g1, b1 = color1[:3]
+	for y in range(h):
+		f = min(max((y - y0) / (y1 - y0), 0), 1)
+		g = 1 - f
+		surf.set_at((0, y), (
+			int(round(g * r0 + f * r1)),
+			int(round(g * g0 + f * g1)),
+			int(round(g * b0 + f * b1)),
+			0
+		))
+	_grad_cache[key] = surf
+	return surf
+
 
 _surf_cache = {}
 _surf_tick_usage = {}
@@ -461,20 +490,19 @@ def getsurf(text, **kwargs):
 			surf.blit(surf0, (opx, opx))
 	else:
 		font = getfont(**options.togetfontoptions())
+		color = options.color
+		if options.gcolor is not None:
+			color = 0, 0, 0
 		# pygame.Font.render does not allow passing None as an argument value for background.
 		if options.background is None or (len(options.background) > 3 and options.background[3] == 0) or options.gcolor is not None:
-			lsurfs = [font.render(text, options.antialias, options.color).convert_alpha() for text, jpara in texts]
+			lsurfs = [font.render(text, options.antialias, color).convert_alpha() for text, jpara in texts]
 		else:
-			lsurfs = [font.render(text, options.antialias, options.color, options.background).convert_alpha() for text, jpara in texts]
+			lsurfs = [font.render(text, options.antialias, color, options.background).convert_alpha() for text, jpara in texts]
 		if options.gcolor is not None:
-			import numpy
-			m = numpy.clip(numpy.arange(lsurfs[0].get_height()) * 2.0 / font.get_ascent() - 1.0, 0, 1)
+			gsurf0 = _gradsurf(lsurfs[0].get_height(), 0.5 * font.get_ascent(), font.get_ascent(), options.color, options.gcolor)
 			for lsurf in lsurfs:
-				array = pygame.surfarray.pixels3d(lsurf)
-				for j in (0, 1, 2):
-					array[:,:,j] = ((1.0 - m) * array[:,:,j] + m * options.gcolor[j]).astype(array.dtype)
-				del array
-
+				gsurf = pygame.transform.scale(gsurf0, lsurf.get_size())
+				lsurf.blit(gsurf, (0, 0), None, pygame.BLEND_RGBA_ADD)
 		if len(lsurfs) == 1 and options.gcolor is None:
 			surf = lsurfs[0]
 		else:
