@@ -206,9 +206,9 @@ characters that occur at a linebreak will not be printed, on either of the two l
 not contribute to the length of the line in accounting for width. Leading spaces (i.e. spaces that
 occur at the beginning of the string, or immediately after `"\n"`, will be preserved.
 
-If `strip` is set to `False`, then all space characters will be preserved and printed. Linebreaks
-can occur immediately before or after a space character, or in between two space characters. The
-width of the space characters themselves is included in the line length calculation.
+If `strip` is set to `False`, then trailing space characters will be only be stripped from the ends
+of lines if this would cause them to overrun the specified width. Setting `strip` to `False` for
+text that is not left-aligned may produce surprising results.
 
 ## Text alignment
 

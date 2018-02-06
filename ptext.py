@@ -282,7 +282,7 @@ def wrap(text, **kwargs):
 			if " " not in para[a+1:]:
 				b = len(para)
 				bline = para
-			elif options.strip:
+			else:
 				# Lines may be split at any space character that immediately follows a non-space
 				# character.
 				b = para.index(" ", a + 1)
@@ -293,16 +293,21 @@ def wrap(text, **kwargs):
 						b = len(para)
 						break
 				bline = para[:b]
-			else:
-				# Lines may be split at any space character, or any character immediately following
-				# a space character.
-				b = a + 1 if para[a] == " " else para.index(" ", a + 1)
 			bline = para[:b]
 			if font.size(bline)[0] <= options.width:
 				a, line = b, bline
 			else:
+				para = para[a:]
+				if not options.strip:
+					# Copy as many spaces as will fit from the beginning of para to the end of line.
+					nspaces = len(para) - len(para.lstrip(" "))
+					for jspace in range(nspaces):
+						nline = line + " "
+						if font.size(nline)[0] > options.width:
+							break
+						line = nline
+				para = para.lstrip(" ")
 				lines.append((line, jpara))
-				para = para[a:].lstrip(" ") if options.strip else para[a:]
 				a = para.index(" ", 1) if " " in para[1:] else len(para)
 				line = para[:a]
 		if para:

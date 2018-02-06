@@ -23,6 +23,7 @@ for jx, (align, strip) in enumerate([("left", False), ("right", False), ("left",
 	ptext.draw("one two three four", width = 200, top = 350, **kpos)
 	ptext.draw("one   two   three", width = 200, top = 450, **kpos)
 	ptext.draw("one                                             two", width = 200, top = 550, **kpos)
+	ptext.draw("one two three four five six seven eight nine ten eleven", width = 200, top = 650, fontsize = 25, **kpos)
 
 pygame.display.flip()
 
