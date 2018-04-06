@@ -260,6 +260,7 @@ def getfont(**kwargs):
 def wrap(text, **kwargs):
 	options = _WrapOptions(**kwargs)
 	font = getfont(**options.togetfontoptions())
+	getwidth = lambda line: font.size(line)[0]
 	paras = text.replace("\t", "    ").split("\n")
 	lines = []
 	for jpara, para in enumerate(paras):
@@ -271,20 +272,28 @@ def wrap(text, **kwargs):
 		if not para:
 			lines.append(("", jpara))
 			continue
-		# Preserve leading spaces in all cases.
-		a = len(para) - len(para.lstrip(" "))
-		# At any time, a is the rightmost known index you can legally split a line. I.e. it's legal
-		# to add para[:a] to lines, and line is what will be added to lines if para is split at a.
-		a = para.index(" ", a) if " " in para else len(para)
+		# A break point is defined as any space character that immediately follows a non-space
+		# character, or the end of the paragraph. These are the points that will be considered for
+		# breaking a line off the front of the paragraph, although exactly how much whitespace goes
+		# into the line depends on options.strip.
+		
+		# A valid break point is any break point such that breaking here will keep the width of the
+		# line within options.width, with the exception that the first break point in the
+		# paragraph is always valid. The goal of this algorithm is to find the last valid break
+		# point.
+
+		# Preserve paragraph leading spaces in all cases.
+		lspaces = len(para) - len(para.lstrip(" "))
+		# At any given time, a is the index of a known valid break point, and line = para[:a].
+		a = para.index(" ", lspaces) if " " in para[lspaces:] else len(para)
 		line = para[:a]
 		while a + 1 < len(para):
-			# b is the next legal place to break the line, with bline the corresponding line to add.
+			# b is the next break point, with bline the corresponding line to add.
 			if " " not in para[a+1:]:
 				b = len(para)
 				bline = para
 			else:
-				# Lines may be split at any space character that immediately follows a non-space
-				# character.
+				# Find a space character that immediately follows a non-space character.
 				b = para.index(" ", a + 1)
 				while para[b-1] == " ":
 					if " " in para[b+1:]:
@@ -294,22 +303,26 @@ def wrap(text, **kwargs):
 						break
 				bline = para[:b]
 			bline = para[:b]
-			if font.size(bline)[0] <= options.width:
+			if getwidth(bline) <= options.width:
 				a, line = b, bline
 			else:
-				para = para[a:]
+				# Last vaild break point located.
 				if not options.strip:
-					# Copy as many spaces as will fit from the beginning of para to the end of line.
+					# If options.strip is False, maintain as many spaces from after the break point
+					# as will keep us under options.width.
 					nspaces = len(para) - len(para.lstrip(" "))
 					for jspace in range(nspaces):
 						nline = line + " "
-						if font.size(nline)[0] > options.width:
+						if getwidth(nline) > options.width:
 							break
 						line = nline
-				para = para.lstrip(" ")
 				lines.append((line, jpara))
+				# Start the search over with the rest of the paragraph.
+				para = para[a:].lstrip(" ")
 				a = para.index(" ", 1) if " " in para[1:] else len(para)
 				line = para[:a]
+		# Handle the case of the first valid break point of the last line being the end of the line.
+		# In this case there are no trailing spaces.
 		if para:
 			lines.append((line, jpara))
 	return lines

@@ -3,7 +3,7 @@ import ptext
 
 pygame.init()
 
-screen = pygame.display.set_mode((1000, 800))
+screen = pygame.display.set_mode((1000, 1200))
 screen.fill((60, 60, 60))
 
 ptext.DEFAULT_BACKGROUND = "#663300"
@@ -13,7 +13,7 @@ for jx, (align, strip) in enumerate([("left", False), ("right", False), ("left",
 	ptext.DEFAULT_ALIGN = align
 	ptext.DEFAULT_STRIP = strip
 	x = 100 + 220 * jx
-	screen.fill((30, 30, 30), (x, 100, 200, 600))
+	screen.fill((30, 30, 30), (x, 100, 200, 1000))
 	kpos = {"right": x + 200} if align == "right" else {"left": x}
 
 	ptext.draw("", top = 100, **kpos)
@@ -24,6 +24,7 @@ for jx, (align, strip) in enumerate([("left", False), ("right", False), ("left",
 	ptext.draw("one   two   three", width = 200, top = 450, **kpos)
 	ptext.draw("one                                             two", width = 200, top = 550, **kpos)
 	ptext.draw("one two three four five six seven eight nine ten eleven", width = 200, top = 650, fontsize = 25, **kpos)
+	ptext.draw("foobar \n zimwat", top = 740, **kpos)
 
 pygame.display.flip()
 
