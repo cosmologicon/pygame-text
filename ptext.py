@@ -261,6 +261,9 @@ def wrap(text, **kwargs):
 	options = _WrapOptions(**kwargs)
 	font = getfont(**options.togetfontoptions())
 	getwidth = lambda line: font.size(line)[0]
+	# Apparently Font.render accepts None for the text argument, in which case it's treated as the
+	# empty string. We match that behavior here.
+	if text is None: text = ""
 	paras = text.replace("\t", "    ").split("\n")
 	lines = []
 	for jpara, para in enumerate(paras):
@@ -310,7 +313,7 @@ def wrap(text, **kwargs):
 				if not options.strip:
 					# If options.strip is False, maintain as many spaces from after the break point
 					# as will keep us under options.width.
-					nspaces = len(para) - len(para.lstrip(" "))
+					nspaces = len(para[a:]) - len(para[a:].lstrip(" "))
 					for jspace in range(nspaces):
 						nline = line + " "
 						if getwidth(nline) > options.width:
