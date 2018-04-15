@@ -547,6 +547,7 @@ def getsurf(text, **kwargs):
 # The actual position on the screen where the surf is to be blitted, rather than the specified
 # anchor position.
 def _blitpos(angle, pos, anchor, tsurf, text):
+	angle = _resolveangle(angle)
 	x, y = pos
 	hanchor, vanchor = anchor
 	if angle:

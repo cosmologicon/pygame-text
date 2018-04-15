@@ -17,7 +17,7 @@ ptext.draw("Transparency", (700, 240), alpha=0.1)
 ptext.draw("Vertical text", midleft=(40, 440), angle=90)
 ptext.draw("All together now:\nCombining the above options",
     midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48, underline=True,
-    color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8)
+    color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8, angle=5)
 
 pygame.display.flip()
 while not any(event.type in (pygame.KEYDOWN, pygame.QUIT) for event in pygame.event.get()):
