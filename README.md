@@ -415,3 +415,67 @@ in.
 
 `ptext.getsurf` takes the same keyword arguments that `ptext.draw` takes (except for arguments
 related to positioning), and returns the `pygame.Surface` containing the text to be drawn.
+
+## OpenGL support with `ptextgl`
+
+The `ptextgl` module provides a wrapper around `ptext` that allows you to draw to an OpenGL surface
+if you have the pyopengl module installed alongside pygame. To use, put both `ptext.py` and
+`ptextgl.py` in your source directory.
+
+The basic usage is essentially identical to calling `ptext.draw`:
+
+	ptextgl.draw("hello world", (100, 100), color="gray")
+
+Even though OpenGL follows the convention of y increasing upward, `ptextgl` follows the convention
+of y increasing downward, like pygame does, in order to be as similar to `ptext` as possible. So
+`(0, 0)` refers to the upper-left of the screen.
+
+The `surf` keyword argument must not be specified.
+
+### OpenGL state preparation
+
+	ptextgl.draw("hello world", (100, 100), prep=False)
+
+Keyword argument:
+
+* `prep`: Defaults to `ptextgl.AUTO_PREP`, which defaults to `True`.
+
+OpenGL has a lot of state that affects how a render call will actually appear on the screen. In
+order for `pytextgl` to render properly, the proper state must be established before the render
+occurs.
+
+By default, every call to `pytextgl.draw` will prepare the appropriate state, invoke the render,
+and re-establish the state from before the call occurred. See the following section for details as
+to what's included in this state.
+
+This default can be potentially wasteful if you make several consecutive calls to `pytextgl.draw`,
+since they all use the same state, which must be re-established with each call.
+
+	ptextgl.draw(text0, pos0)
+	ptextgl.draw(text1, pos1)
+	ptextgl.draw(text2, pos2)
+
+In this case you can avoid changing state with every `draw` call with the `prep` argument. The
+module functions `ptextgl.prep` and `ptextgl.unprep` let you manually set up and restore the state.
+`ptextgl.prep` returns an object that can be passed to `ptextgl.unprep` to re-establish the state
+from before the call.
+
+	state = ptextgl.prep()
+	ptextgl.draw(text0, pos0, prep=False)
+	ptextgl.draw(text1, pos1, prep=False)
+	ptextgl.draw(text2, pos2, prep=False)
+	ptextgl.unprep(state)
+
+### OpenGL state
+
+The following aspects of the OpenGL state are affected by `ptextgl.prep`:
+
+* Current shader
+* `GL_TEXTURE_2D`
+* `GL_DEPTH_TEST`
+* `GL_CULL_FACE`
+* `GL_LIGHTING`
+
+The following aspects of the OpenGL state are not affected:
+
+* `GL_SCISSOR_TEST`
