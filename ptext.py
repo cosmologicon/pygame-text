@@ -131,6 +131,24 @@ class _DrawOptions(_Options):
 	def togetsurfoptions(self):
 		return self.getsuboptions(_GetsurfOptions)
 
+
+# Options for the layout function. By design, this has the same options as draw, although some of
+# them are silently ignored.
+class _LayoutOptions(_DrawOptions):
+	def __init__(self, **kwargs):
+		_Options.__init__(self, **kwargs)
+		self.expandposition()
+		self.expandanchor()		
+		if self.lineheight is None: self.lineheight = DEFAULT_LINE_HEIGHT
+		if self.pspace is None: self.pspace = DEFAULT_PARAGRAPH_SPACE
+
+	def towrapoptions(self):
+		return self.getsuboptions(_WrapOptions)
+
+	def togetfontoptions(self):
+		return self.getsuboptions(_GetfontOptions)
+
+
 class _DrawboxOptions(_Options):
 	_fields = (
 		"fontname", "sysfontname", "antialias", "bold", "italic", "underline",
@@ -544,30 +562,68 @@ def getsurf(text, **kwargs):
 		_tick += 1
 	return surf
 
+
 # The actual position on the screen where the surf is to be blitted, rather than the specified
 # anchor position.
-def _blitpos(angle, pos, anchor, tsurf, text):
+def _blitpos(angle, pos, anchor, size, text):
 	angle = _resolveangle(angle)
 	x, y = pos
+	sw, sh = size
 	hanchor, vanchor = anchor
 	if angle:
-		w0, h0 = _unrotated_size[(tsurf.get_size(), angle, text)]
+		w0, h0 = _unrotated_size[(size, angle, text)]
 		S, C = sin(radians(angle)), cos(radians(angle))
 		dx, dy = (0.5 - hanchor) * w0, (0.5 - vanchor) * h0
-		x += dx * C + dy * S - 0.5 * tsurf.get_width()
-		y += -dx * S + dy * C - 0.5 * tsurf.get_height()
+		x += dx * C + dy * S - 0.5 * sw
+		y += -dx * S + dy * C - 0.5 * sh
 	else:
-		x -= hanchor * tsurf.get_width()
-		y -= vanchor * tsurf.get_height()
+		x -= hanchor * sw
+		y -= vanchor * sh
 	x = int(round(x))
 	y = int(round(y))
 	return x, y
 
 
+def layout(text, **kwargs):
+	options = _LayoutOptions(**kwargs)
+	if options.angle != 0:
+		raise ValueError("Nonzero angle not yet supported for ptext.layout")
+	font = getfont(**options.togetfontoptions())
+	texts = wrap(text, **options.towrapoptions())
+
+	# TODO: the following is duplicated from getsurf
+	rects = [pygame.Rect(0, 0, *font.size(text)) for text, jpara in texts]
+	fh = font.get_height()
+	fl = font.get_linesize()
+	sw = max(rect.w for rect in rects)
+	linesize = fl * options.lineheight
+	parasize = fl * options.pspace
+	ys = [int(round(k * linesize + jpara * parasize)) for k, (text, jpara) in enumerate(texts)]
+	sh = ys[-1] + fl
+	for y, rect in zip(ys, rects):
+		rect.x = int(round(options.align * (sw - rect.w)))
+		rect.y = y
+
+	x0, y0 = _blitpos(options.angle, options.pos, options.anchor, (sw, sh), None)
+
+	# Adjust the rects as necessary to account for outline and shadow.
+	# TODO: the following is duplicated from _GetsurfOptions.__init__
+	dx, dy = 0, 0
+	if options.owidth is not None:
+		opx = ceil(options.owidth * options.fontsize * OUTLINE_UNIT)
+		dx, dy = max(dx, abs(opx)), max(dy, abs(opx))
+	if options.shadow is not None:
+		spx, spy = (ceil(s * options.fontsize * SHADOW_UNIT) for s in options.shadow)
+		dx, dy = max(dx, -spx), max(dy, -spy)
+	rects = [rect.move(x0 + dx, y0 + dy) for rect in rects]
+
+	return font, [(text, rect) for (text, jpara), rect in zip(texts, rects)]
+
+
 def draw(text, pos=None, **kwargs):
 	options = _DrawOptions(pos = pos, **kwargs)
 	tsurf = getsurf(text, **options.togetsurfoptions())
-	pos = _blitpos(options.angle, options.pos, options.anchor, tsurf, text)
+	pos = _blitpos(options.angle, options.pos, options.anchor, tsurf.get_size(), text)
 	if options.surf is not None:
 		options.surf.blit(tsurf, pos)
 	if AUTO_CLEAN:

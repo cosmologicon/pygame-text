@@ -397,6 +397,23 @@ object to stay within. The font size will be chosen to be as large as possible w
 the box. Other than `fontsize` and positional arguments, you can pass all the same keyword arguments
 to `ptext.drawbox` as to `ptext.draw`. The return value is the same as for `ptext.draw`.
 
+## `ptext.layout`: 
+
+	font, lines = ptext.layout("hello world", fontsize=50, center=(500, 500))
+	for text, rect in lines:
+		pass
+
+`ptext.layout` returns a `pygame.font.Font` object and a list of lines. Each line is a 2-tuple
+consisting of a string of text and a `pygame.Rect` object. The Rect indicates where on the
+destination surface the given line of text will appear.
+
+`ptext.layout` takes all the same arguments as `ptext.draw`. The following arguments are silently
+ignored, since they have no effect on the layout:
+
+	color background ocolor scolor gcolor shade alpha surf cache
+
+Rotated text is not supported by this method. The `angle` keyword argument, if specified, must be 0.
+
 ## Other public methods
 
 These methods are used internally, but you can use them if you want. They should work fine.
