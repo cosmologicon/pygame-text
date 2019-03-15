@@ -29,6 +29,7 @@ DEFAULT_ANCHOR = 0, 0  # 0, 0 = top left ;  1, 1 = bottom right
 DEFAULT_STRIP = True
 ALPHA_RESOLUTION = 16
 ANGLE_RESOLUTION_DEGREES = 3
+DEFAULT_UNDERLINE_TAG = None
 
 AUTO_CLEAN = True
 MEMORY_LIMIT_MB = 64
@@ -56,10 +57,14 @@ class _Options(object):
 	@classmethod
 	def _allfields(cls):
 		return set(cls._fields) | set(cls._defaults)
+	def keys(self):
+		return self._allfields()
+	def __getitem__(self, field):
+		return getattr(self, field)
 	def update(self, **newkwargs):
 		kwargs = { field: getattr(self, field) for field in self._allfields() }
 		kwargs.update(**newkwargs)
-		return kwargs
+		return self.__class__(**kwargs)
 	def key(self):
 		return tuple(getattr(self, field) for field in sorted(self._allfields()))
 	def getsuboptions(self, optclass):
@@ -67,6 +72,7 @@ class _Options(object):
 
 
 _default_surf_sentinel = ()
+_default_underline_tag_sentinel = ()
 
 # Options argument for the draw function. Specifies both text styling and positioning.
 class _DrawOptions(_Options):
@@ -77,9 +83,12 @@ class _DrawOptions(_Options):
 		"midtop", "midleft", "midbottom", "midright", "center", "centerx", "centery",
 		"width", "widthem", "lineheight", "pspace", "strip", "align",
 		"owidth", "ocolor", "shadow", "scolor", "gcolor", "shade",
-		"alpha", "anchor", "angle", "surf", "cache")
+		"alpha", "anchor", "angle",
+		"underlinetag",
+		"surf", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0,
+		"underlinetag": _default_underline_tag_sentinel,
 		"surf": _default_surf_sentinel, "cache": True }
 
 	def __init__(self, **kwargs):
@@ -175,8 +184,12 @@ class _DrawboxOptions(_Options):
 class _GetsurfOptions(_Options):
 	_fields = ("fontname", "fontsize", "sysfontname", "bold", "italic", "underline", "width",
 		"widthem", "strip", "color", "background", "antialias", "ocolor", "owidth", "scolor",
-		"shadow", "gcolor", "shade", "alpha", "align", "lineheight", "pspace", "angle", "cache")
-	_defaults = { "antialias": True, "alpha": 1.0, "angle": 0, "cache": True }
+		"shadow", "gcolor", "shade", "alpha", "align", "lineheight", "pspace", "angle",
+		"underlinetag", "cache")
+	_defaults = {
+		"antialias": True, "alpha": 1.0, "angle": 0,
+		"underlinetag": _default_underline_tag_sentinel,
+		"cache": True }
 
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
@@ -203,6 +216,13 @@ class _GetsurfOptions(_Options):
 		self.alpha = _resolvealpha(self.alpha)
 		self.angle = _resolveangle(self.angle)
 		self.strip = DEFAULT_STRIP if self.strip is None else self.strip
+		
+		if self.underlinetag is _default_underline_tag_sentinel:
+			self.underlinetag = DEFAULT_UNDERLINE_TAG
+
+	def checkinline(self):
+		if self.angle is None or self._opx is not None or self._spx is not None or self.align != 0 or self.gcolor or self.shade:
+			raise ValueError("Inline style not compatible with rotation, outline, drop shadow, gradient, or non-left-aligned text.")
 
 	def towrapoptions(self):
 		return self.getsuboptions(_WrapOptions)
@@ -213,7 +233,8 @@ class _GetsurfOptions(_Options):
 
 class _WrapOptions(_Options):
 	_fields = ("fontname", "fontsize", "sysfontname",
-		"bold", "italic", "underline", "width", "widthem", "strip")
+		"bold", "italic", "underline", "width", "widthem", "firstline", "strip")
+	_defaults = { "firstline": 0 }
 
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
@@ -221,8 +242,9 @@ class _WrapOptions(_Options):
 			raise ValueError("Can't set both width and widthem")
 
 		if self.widthem is not None:
-			self.width = self.widthem * REFERENCE_FONT_SIZE
 			self.fontsize = REFERENCE_FONT_SIZE
+			self.width = self.widthem * self.fontsize
+			self.firstline *= self.fontsize
 
 		if self.strip is None:
 			self.strip = DEFAULT_STRIP
@@ -284,6 +306,7 @@ def wrap(text, **kwargs):
 	if text is None: text = ""
 	paras = text.replace("\t", "    ").split("\n")
 	lines = []
+	width = None if options.width is None else options.width - options.firstline
 	for jpara, para in enumerate(paras):
 		if options.strip:
 			para = para.rstrip(" ")
@@ -307,6 +330,8 @@ def wrap(text, **kwargs):
 		lspaces = len(para) - len(para.lstrip(" "))
 		# At any given time, a is the index of a known valid break point, and line = para[:a].
 		a = para.index(" ", lspaces) if " " in para[lspaces:] else len(para)
+		if width < options.width:
+			a = 0
 		line = para[:a]
 		while a + 1 < len(para):
 			# b is the next break point, with bline the corresponding line to add.
@@ -324,7 +349,7 @@ def wrap(text, **kwargs):
 						break
 				bline = para[:b]
 			bline = para[:b]
-			if getwidth(bline) <= options.width:
+			if getwidth(bline) <= width:
 				a, line = b, bline
 			else:
 				# Last vaild break point located.
@@ -334,10 +359,11 @@ def wrap(text, **kwargs):
 					nspaces = len(para[a:]) - len(para[a:].lstrip(" "))
 					for jspace in range(nspaces):
 						nline = line + " "
-						if getwidth(nline) > options.width:
+						if getwidth(nline) > width:
 							break
 						line = nline
 				lines.append((line, jpara))
+				width = options.width
 				# Start the search over with the rest of the paragraph.
 				para = para[a:].lstrip(" ")
 				a = para.index(" ", 1) if " " in para[1:] else len(para)
@@ -475,6 +501,23 @@ def _gradsurf(h, y0, y1, color0, color1):
 	_grad_cache[key] = surf
 	return surf
 
+def _splitbytags(text, underline, underlinetag):
+	tags = sorted(set([underlinetag]) - set([None]))
+	if not tags:
+		yield text, underline
+		return
+	while text:
+		tagsin = [tag for tag in tags if tag in text]
+		if not tagsin:
+			break
+		a, tag = min((text.index(tag), tag) for tag in tagsin)
+		if a > 0:
+			yield text[:a], underline
+		text = text[a + len(tag):]
+		if tag == underlinetag:
+			underline = not underline
+	if text:
+		yield text, underline
 
 _surf_cache = {}
 _surf_tick_usage = {}
@@ -485,12 +528,14 @@ def getsurf(text, **kwargs):
 	global _tick, _surf_size_total
 	options = _GetsurfOptions(**kwargs)
 	key = text, options.key()
-
 	if key in _surf_cache:
 		_surf_tick_usage[key] = _tick
 		_tick += 1
 		return _surf_cache[key]
-	texts = wrap(text, **options.towrapoptions())
+	tagtexts = list(_splitbytags(text, options.underline, options.underlinetag))
+	if len(tagtexts) > 1:
+		options.checkinline()
+
 	if options.angle:
 		surf0 = getsurf(text, **options.update(angle = 0))
 		surf = _rotatesurf(surf0, options.angle)
@@ -526,7 +571,35 @@ def getsurf(text, **kwargs):
 			surf.blit(surf0, (opx, opx), None, pygame.BLEND_RGBA_SUB)
 		else:
 			surf.blit(surf0, (opx, opx))
+	elif len(tagtexts) > 1:
+		lsurfs = []
+		ps = []
+		y = 0
+		px = 0
+		# TODO: incorporate this with the next section to handle more inline options.
+		tsplits = list(_splitbytags(text, options.underline, options.underlinetag))
+		for jsplit, (text, options.underline) in enumerate(tsplits):
+			strip = options.strip if jsplit == len(tsplits) - 1 else False
+			texts = wrap(text, firstline = px, **options.update(strip = strip).towrapoptions())
+			font = getfont(**options.togetfontoptions())
+			linesize = font.get_linesize() * options.lineheight
+			parasize = font.get_linesize() * options.pspace
+			lsurfs += [font.render(line, options.antialias, options.color).convert_alpha() for line, jpara in texts]
+			for k, (_, jpara) in enumerate(texts):
+				if k:
+					px = 0
+				py = y + int(round(k * linesize + jpara * parasize))
+				ps.append((px, py))
+			px += lsurfs[-1].get_width()
+			y = py
+		w = max(lsurf.get_width() + x for lsurf, (x, y) in zip(lsurfs, ps))
+		h = max(lsurf.get_height() + y for lsurf, (x, y) in zip(lsurfs, ps))
+		surf = pygame.Surface((w, h)).convert_alpha()
+		surf.fill(options.background or (0, 0, 0, 0))
+		for p, lsurf in zip(ps, lsurfs):
+			surf.blit(lsurf, p)
 	else:
+		texts = wrap(text, **options.towrapoptions())
 		font = getfont(**options.togetfontoptions())
 		color = options.color
 		if options.gcolor is not None:

@@ -11,7 +11,6 @@ This module simplifies drawing text with the pygame.font module. Specifically, t
 
 ## Quick usage examples
 
-	ptext.draw("Text color", (50, 30), color="orange")
 	ptext.draw("Font name and size", (20, 100), fontname="fonts/Boogaloo.ttf", fontsize=60)
 	ptext.draw("Font decoration", (300, 180), sysfontname="freesans", italic=True, underline=True)
 	ptext.draw("Positioned text", topright=(840, 20))
@@ -21,9 +20,10 @@ This module simplifies drawing text with the pygame.font module. Specifically, t
 	ptext.draw("Color gradient", (540, 170), color="red", gcolor="purple")
 	ptext.draw("Transparency", (700, 240), alpha=0.1)
 	ptext.draw("Vertical text", midleft=(40, 440), angle=90)
+	ptext.draw("Inline _styling_ with tags", (630, 320), underlinetag="_")
 	ptext.draw("All together now:\nCombining the above options",
-		midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48,
-		color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8)
+		midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48, underline=True,
+		color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8, angle=5)
 
 ## To install
 
@@ -56,6 +56,7 @@ use the positioning keyword arguments (described later).
 	alpha
 	anchor
 	angle
+	underlinetag
 	surf
 	cache
 
@@ -72,6 +73,7 @@ to your desired values:
 	DEFAULT_ANCHOR
 	DEFAULT_LINE_HEIGHT DEFAULT_PARAGRAPH_SPACE DEFAULT_STRIP
 	ANGLE_RESOLUTION_DEGREES
+	DEFAULT_UNDERLINE_TAG
 	AUTO_CLEAN MEMORY_LIMIT_MB MEMORY_REDUCTION_FACTOR
 
 The `ptext.draw` keyword arguments and the `ptext` module-level global variables are described in
@@ -345,6 +347,25 @@ for more fine-grained control over rotation. It's recommended you set it only to
 evenly into 90 in floating-point representation. Such values include:
 
 	0.25 0.5 0.75 1 1.25 1.5 2 2.25 2.5 3 3.75 4.5 5 6 7.5 9 10 15 18 30
+
+## Inline styling
+
+	ptext.draw("hello __world__", (100, 100), underlinetag="__")
+
+Keyword arguments:
+
+* `underlinetag`: a string indicating the start and end of underlining within text. Defaults to
+  `ptext.DEFAULT_UNDERLINE_TAG`, which is `None` by default.
+
+This lets you style (i.e. underline) part of the drawn text. If `underlinetag` is `None`, or the
+specified underline tag does not appear in the text, then no inline styling will be applied. If the
+specified underline tag does appear in the text, then it indicates the start and end of the
+styling.
+
+Inline styling is not yet compatible with certain options. If you use inline styling, you may not
+use text rotation (option `angle`), outlines (option `owidth`), drop shadow (option `shadow`),
+gradient color (options `gcolor` or `shade`), or any alignment other than left-aligned (options
+`align` and `anchor`, as well as certain positioning options).
 
 ## Destination surface
 

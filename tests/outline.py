@@ -1,15 +1,15 @@
-# Shadow algorithm
+# Outline algorithm
 
 import pygame
 
+opx = 2  # outline size in pixels
+
+
 # Return the set of points in the circle radius r, using Bresenham's circle algorithm
-_circle_cache = {}
 def _circlepoints(r):
 	r = int(round(r))
-	if r in _circle_cache:
-		return _circle_cache[r]
 	x, y, e = r, 0, 1 - r
-	_circle_cache[r] = points = []
+	points = []
 	while x >= y:
 		points.append((x, y))
 		y += 1
@@ -32,7 +32,18 @@ font = pygame.font.Font(None, 60)
 def getsurf(color):
 	return font.render("hello", True, color).convert_alpha()
 
-opx = 2
+def getoutlinesurf(blendmode = None):
+	surf = pygame.Surface((300, 100)).convert_alpha()
+	surf.fill((0, 0, 0, 0))
+	for dx, dy in _circlepoints(opx):
+		if blendmode is not None:
+			surf.blit(osurf, (dx + opx, dy + opx), None, blendmode)
+		else:
+			surf.blit(osurf, (dx + opx, dy + opx))
+	surf.blit(tsurf, (opx, opx))
+	return surf
+	
+
 osurf = getsurf((0, 0, 0, 0))
 tsurf = getsurf((255, 255, 255, 0))
 for offset, blendmax in [(0, False), (300, True)]:
