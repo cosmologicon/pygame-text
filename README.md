@@ -210,7 +210,9 @@ occur at the beginning of the string, or immediately after `"\n"`, will be prese
 
 If `strip` is set to `False`, then trailing space characters will be only be stripped from the ends
 of lines if this would cause them to overrun the specified width. Setting `strip` to `False` for
-text that is not left-aligned may produce surprising results.
+text that is not left-aligned may produce surprising results. Also, for left-aligned text, this
+option is essentially meaningless if `background` is set to `None`, since trailing spaces are
+invisible.
 
 ## Text alignment
 
@@ -348,7 +350,9 @@ evenly into 90 in floating-point representation. Such values include:
 
 	0.25 0.5 0.75 1 1.25 1.5 2 2.25 2.5 3 3.75 4.5 5 6 7.5 9 10 15 18 30
 
-## Inline styling
+## Inline styling (experimental)
+
+Note: the API for inline styling is under development. This section is subject to change.
 
 	ptext.draw("hello __world__", (100, 100), underlinetag="__")
 
@@ -420,13 +424,12 @@ to `ptext.drawbox` as to `ptext.draw`. The return value is the same as for `ptex
 
 ## `ptext.layout`: 
 
-	font, lines = ptext.layout("hello world", fontsize=50, center=(500, 500))
-	for text, rect in lines:
+	for text, rect, font in ptext.layout("hello world", fontsize=50, center=(500, 500)):
 		pass
 
-`ptext.layout` returns a `pygame.font.Font` object and a list of lines. Each line is a 2-tuple
-consisting of a string of text and a `pygame.Rect` object. The Rect indicates where on the
-destination surface the given line of text will appear.
+`ptext.layout` returns a list of spans. Each span is a 3-tuple consisting of the string of text that
+the span covers, the `pygame.Rect` object covered by the span on the destination surface, and the
+`pygame.Font` object used to render text within that span.
 
 `ptext.layout` takes all the same arguments as `ptext.draw`. The following arguments are silently
 ignored, since they have no effect on the layout:
@@ -442,12 +445,6 @@ These methods are used internally, but you can use them if you want. They should
 	ptext.getfont(fontname, fontsize)
 
 `ptext.getfont` returns the corresponding `pygame.font.Font` object.
-
-	ptext.wrap(text, fontname, fontsize, width=None, widthem=None)
-
-`ptext.wrap` returns a list of 2-tuples `(line, jpara)`, one line for each line in the word wrapped
-text. Here `line` is a substring of `text`, and `jpara` is the paragraph number that line appears
-in.
 
 	ptext.getsurf(text, **kwargs)
 

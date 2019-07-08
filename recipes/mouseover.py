@@ -52,8 +52,8 @@ def wordat(font, text, dx):
 #   rect is the pygame.Rect that it covers.
 # pos: the position of the pointer.
 # Returns: either the word that appears at the position pos, or None.
-def pointedword(font, lines, pos):
-	for text, rect in lines:
+def pointedword(layout, pos):
+	for text, rect, font in layout:
 		if rect.collidepoint(pos):
 			dx = pos[0] - rect.left
 			return wordat(font, text, dx)
@@ -91,10 +91,10 @@ while playing:
 		"lineheight": lineheights[jlineheights],
 	}
 	ptext.draw(text, **args)
-	font, lines = ptext.layout(text, **args)
-	word = pointedword(font, lines, pygame.mouse.get_pos())
+	layout = ptext.layout(text, **args)
+	word = pointedword(layout, pygame.mouse.get_pos())
 	if not pygame.Rect(40, 100, 500, 340).collidepoint(pygame.mouse.get_pos()):
-		for line, rect in lines:
+		for line, rect, font in layout:
 			surf = pygame.Surface(rect.size).convert_alpha()
 			surf.fill((255, 255, 255, 40))
 			screen.blit(surf, rect)
