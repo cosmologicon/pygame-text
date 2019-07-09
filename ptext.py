@@ -30,6 +30,9 @@ DEFAULT_STRIP = True
 ALPHA_RESOLUTION = 16
 ANGLE_RESOLUTION_DEGREES = 3
 DEFAULT_UNDERLINE_TAG = None
+DEFAULT_BOLD_TAG = None
+DEFAULT_ITALIC_TAG = None
+DEFAULT_COLOR_TAG = {}
 
 AUTO_CLEAN = True
 MEMORY_LIMIT_MB = 64
@@ -68,13 +71,18 @@ class _Options(object):
 		kwargs.update(**newkwargs)
 		return self.__class__(**kwargs)
 	def key(self):
-		return tuple(getattr(self, field) for field in sorted(self._allfields()))
+		values = []
+		for field in sorted(self._allfields()):
+			value = getattr(self, field)
+			if isinstance(value, dict):
+				value = tuple(sorted(value.items()))
+			values.append(value)
+		return tuple(values)
 	def getsuboptions(self, optclass):
 		return { field: getattr(self, field) for field in optclass._allfields() if hasattr(self, field) }
 
 
-_default_surf_sentinel = ()
-_default_underline_tag_sentinel = ()
+_default_sentinel = ()
 
 # Options argument for the draw function. Specifies both text styling and positioning.
 class _DrawOptions(_Options):
@@ -86,12 +94,15 @@ class _DrawOptions(_Options):
 		"width", "widthem", "lineheight", "pspace", "strip", "align",
 		"owidth", "ocolor", "shadow", "scolor", "gcolor", "shade",
 		"alpha", "anchor", "angle",
-		"underlinetag",
+		"underlinetag", "boldtag", "italictag", "colortag",
 		"surf", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0,
-		"underlinetag": _default_underline_tag_sentinel,
-		"surf": _default_surf_sentinel, "cache": True }
+		"underlinetag": _default_sentinel,
+		"boldtag": _default_sentinel,
+		"italictag": _default_sentinel,
+		"colortag": _default_sentinel,
+		"surf": _default_sentinel, "cache": True }
 
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
@@ -136,7 +147,7 @@ class _DrawOptions(_Options):
 
 	# Unspecified surf values default to the display surface.
 	def resolvesurf(self):
-		if self.surf is _default_surf_sentinel:
+		if self.surf is _default_sentinel:
 			self.surf = pygame.display.get_surface()
 
 	def togetsurfoptions(self):
@@ -152,9 +163,18 @@ class _LayoutOptions(_DrawOptions):
 		self.expandanchor()		
 		if self.lineheight is None: self.lineheight = DEFAULT_LINE_HEIGHT
 		if self.pspace is None: self.pspace = DEFAULT_PARAGRAPH_SPACE
+		self.resolvetags()
 
-		if self.underlinetag is _default_underline_tag_sentinel:
+	# TODO: this is duplicated in _GetsurfOptions.
+	def resolvetags(self):
+		if self.underlinetag is _default_sentinel:
 			self.underlinetag = DEFAULT_UNDERLINE_TAG
+		if self.boldtag is _default_sentinel:
+			self.boldtag = DEFAULT_BOLD_TAG
+		if self.italictag is _default_sentinel:
+			self.italictag = DEFAULT_ITALIC_TAG
+		if self.colortag is _default_sentinel:
+			self.colortag = DEFAULT_COLOR_TAG
 
 	def towrapoptions(self):
 		return self.getsuboptions(_WrapOptions)
@@ -172,7 +192,7 @@ class _DrawboxOptions(_Options):
 		"alpha", "anchor", "angle", "surf", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0, "anchor": (0.5, 0.5),
-		"surf": _default_surf_sentinel, "cache": True }
+		"surf": _default_sentinel, "cache": True }
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
 		if self.fontname is None: self.fontname = DEFAULT_FONT_NAME
@@ -190,10 +210,13 @@ class _GetsurfOptions(_Options):
 	_fields = ("fontname", "fontsize", "sysfontname", "bold", "italic", "underline", "width",
 		"widthem", "strip", "color", "background", "antialias", "ocolor", "owidth", "scolor",
 		"shadow", "gcolor", "shade", "alpha", "align", "lineheight", "pspace", "angle",
-		"underlinetag", "cache")
+		"underlinetag", "boldtag", "italictag", "colortag", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0,
-		"underlinetag": _default_underline_tag_sentinel,
+		"underlinetag": _default_sentinel,
+		"boldtag": _default_sentinel,
+		"italictag": _default_sentinel,
+		"colortag": _default_sentinel,
 		"cache": True }
 
 	def __init__(self, **kwargs):
@@ -221,9 +244,17 @@ class _GetsurfOptions(_Options):
 		self.alpha = _resolvealpha(self.alpha)
 		self.angle = _resolveangle(self.angle)
 		self.strip = DEFAULT_STRIP if self.strip is None else self.strip
-		
-		if self.underlinetag is _default_underline_tag_sentinel:
+		self.resolvetags()
+
+	def resolvetags(self):
+		if self.underlinetag is _default_sentinel:
 			self.underlinetag = DEFAULT_UNDERLINE_TAG
+		if self.boldtag is _default_sentinel:
+			self.boldtag = DEFAULT_BOLD_TAG
+		if self.italictag is _default_sentinel:
+			self.italictag = DEFAULT_ITALIC_TAG
+		if self.colortag is _default_sentinel:
+			self.colortag = DEFAULT_COLOR_TAG
 
 	def checkinline(self):
 		if self.angle is None or self._opx is not None or self._spx is not None or self.align != 0 or self.gcolor or self.shade:
@@ -238,9 +269,15 @@ class _GetsurfOptions(_Options):
 
 class _WrapOptions(_Options):
 	_fields = ("fontname", "fontsize", "sysfontname",
-		"bold", "italic", "underline", "width", "widthem", "firstline", "strip",
-		"underlinetag")
-	_defaults = { "firstline": 0 }
+		"bold", "italic", "underline", "width", "widthem", "strip",
+		"color",
+		"underlinetag", "boldtag", "italictag", "colortag")
+	_defaults = {
+		"underlinetag": _default_sentinel,
+		"boldtag": _default_sentinel,
+		"italictag": _default_sentinel,
+		"colortag": _default_sentinel,
+	}
 
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
@@ -250,7 +287,6 @@ class _WrapOptions(_Options):
 		if self.widthem is not None:
 			self.fontsize = REFERENCE_FONT_SIZE
 			self.width = self.widthem * self.fontsize
-			self.firstline *= self.fontsize
 
 		if self.strip is None:
 			self.strip = DEFAULT_STRIP
@@ -436,14 +472,28 @@ def _gradsurf(h, y0, y1, color0, color1):
 
 
 # Tracks everything that can be updated by tags.
-class TagSpec(namedtuple("TagSpec", ["underline"])):
+class TagSpec(namedtuple("TagSpec", ["underline", "bold", "italic", "color"])):
 	@staticmethod
 	def fromoptions(options):
-		return TagSpec(underline = options.underline)
+		return TagSpec(
+			underline = options.underline,
+			bold = options.bold,
+			italic = options.italic,
+			color = options.color
+		)
 	def updateoptions(self, options):
 		options.underline = self.underline
+		options.bold = self.bold
+		options.italic = self.italic
+		options.color = self.color
 	def toggleunderline(self):
 		return self._replace(underline = not self.underline)
+	def togglebold(self):
+		return self._replace(bold = not self.bold)
+	def toggleitalic(self):
+		return self._replace(italic = not self.italic)
+	def setcolor(self, color):
+		return self._replace(color = color)
 
 # Splits a string into substrings with corresponding tag specs.
 # Empty strings are skipped. Consecutive idential tag specs are not merged.
@@ -452,8 +502,9 @@ class TagSpec(namedtuple("TagSpec", ["underline"])):
 #   ("abc", TagSpec(underline=True))
 #   ("def", TagSpec(underline=True))
 #   (" ghi", TagSpec(underline=False))
-def _splitbytags(text, tagspec0, underlinetag):
-	tags = sorted(set([underlinetag]) - set([None]))
+def _splitbytags(text, tagspec0, color0, underlinetag, boldtag, italictag, colortag):
+	colortag = { k: _resolvecolor(v, color0) for k, v in colortag.items() }
+	tags = sorted((set([underlinetag, boldtag, italictag]) | set(colortag.keys())) - set([None]))
 	if not tags:
 		yield text, tagspec0
 		return
@@ -468,6 +519,12 @@ def _splitbytags(text, tagspec0, underlinetag):
 		text = text[a + len(tag):]
 		if tag == underlinetag:
 			tagspec = tagspec.toggleunderline()
+		if tag == boldtag:
+			tagspec = tagspec.togglebold()
+		if tag == italictag:
+			tagspec = tagspec.toggleitalic()
+		if tag in colortag:
+			tagspec = tagspec.setcolor(colortag[tag])
 	if text:
 		yield text, tagspec
 
@@ -520,14 +577,14 @@ def _wrapline(textandtags, width, getwidthbytagspec):
 			# TODO: options.split
 			rwidth = None if width is None else width - x
 			a = _getbreakpoint(text, rwidth, getwidth, canbreakatstart)
+			while a < len(text) and text[a] == " ":
+				a += 1
 			if a == 0:
 				lines.append((line, x))
 				line = []
 				x = 0
 				canbreakatstart = False
 			else:
-				while a < len(text) and text[a] == " ":
-					a += 1
 				line.append((text[:a], tagspec, x))
 				x += getwidth(text[:a])
 				text = text[a:]
@@ -546,16 +603,16 @@ def _wrap(text, **kwargs):
 	# Apparently Font.render accepts None for the text argument, in which case it's treated as the
 	# empty string. We match that behavior here.
 	if text is None: text = ""
-	width = None if options.width is None else options.width - options.firstline
 	spans = []
 	tagspec0 = TagSpec.fromoptions(options)
 	jline = 0
 	for jpara, para in enumerate(text.replace("\t", "    ").split("\n")):
 		if options.strip:
 			para = para.rstrip(" ")
-		textandtags = list(_splitbytags(para, tagspec0, options.underlinetag))
+		tagargs = options.underlinetag, options.boldtag, options.italictag, options.colortag
+		textandtags = list(_splitbytags(para, tagspec0, options.color, *tagargs))
 		_, tagspec0 = textandtags[-1]
-		for line, linewidth in _wrapline(textandtags, width, getwidthbytagspec):
+		for line, linewidth in _wrapline(textandtags, options.width, getwidthbytagspec):
 			if not line:
 				jline += 1
 				continue
@@ -564,7 +621,7 @@ def _wrap(text, **kwargs):
 			getwidth = getwidthbytagspec(tagspec)
 			if options.strip:
 				tpiece = tpiece.rstrip(" ")
-			elif width is not None:
+			elif options.width is not None:
 				while tpiece[-1] == " " and x + getwidth(tpiece) > options.width:
 					tpiece = tpiece[:-1]
 			line.append((tpiece, tagspec, x))
@@ -599,7 +656,15 @@ def getsurf(text, **kwargs):
 	elif options._spx is not None:
 		color = (0, 0, 0) if _istransparent(options.color) else options.color
 		surf0 = getsurf(text, **options.update(background = (0, 0, 0, 0), color = color, shadow = None, scolor = None))
-		ssurf = getsurf(text, **options.update(background = (0, 0, 0, 0), color = options.scolor, shadow = None, scolor = None, gcolor = None))
+		sopts = {
+			"color": options.scolor,
+			"shadow": None,
+			"scolor": None,
+			"background": (0, 0, 0, 0),
+			"gcolor": None,
+			"colortag": { k: None for k in options.colortag },
+		}
+		ssurf = getsurf(text, **options.update(**sopts))
 		w0, h0 = surf0.get_size()
 		sx, sy = options._spx
 		surf = pygame.Surface((w0 + abs(sx), h0 + abs(sy))).convert_alpha()
@@ -614,7 +679,15 @@ def getsurf(text, **kwargs):
 	elif options._opx is not None:
 		color = (0, 0, 0) if _istransparent(options.color) else options.color
 		surf0 = getsurf(text, **options.update(color = color, ocolor = None, owidth = None))
-		osurf = getsurf(text, **options.update(color = options.ocolor, ocolor = None, owidth = None, background = (0,0,0,0), gcolor = None))
+		oopts = {
+			"color": options.ocolor,
+			"ocolor": None,
+			"owidth": None,
+			"background": (0, 0, 0, 0),
+			"gcolor": None,
+			"colortag": { k: None for k in options.colortag },
+		}
+		osurf = getsurf(text, **options.update(**oopts))
 		w0, h0 = surf0.get_size()
 		opx = options._opx
 		surf = pygame.Surface((w0 + 2 * opx, h0 + 2 * opx)).convert_alpha()

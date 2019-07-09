@@ -9,6 +9,9 @@ This module simplifies drawing text with the pygame.font module. Specifically, t
 * provides more fine-grained text positioning options.
 * provides a few special effects: outlines, drop shadows, gradient fill, and transparency.
 
+`ptext` is not part of or affiliated with [pygame](https://www.pygame.org). It requires that you
+already have pygame installed separately.
+
 ## Quick usage examples
 
 	ptext.draw("Font name and size", (20, 100), fontname="fonts/Boogaloo.ttf", fontsize=60)
@@ -56,7 +59,7 @@ use the positioning keyword arguments (described later).
 	alpha
 	anchor
 	angle
-	underlinetag
+	underlinetag boldtag italictag colortag
 	surf
 	cache
 
@@ -73,7 +76,8 @@ to your desired values:
 	DEFAULT_ANCHOR
 	DEFAULT_LINE_HEIGHT DEFAULT_PARAGRAPH_SPACE DEFAULT_STRIP
 	ANGLE_RESOLUTION_DEGREES
-	DEFAULT_UNDERLINE_TAG
+	DEFAULT_UNDERLINE_TAG DEFAULT_BOLD_TAG DEFAULT_ITALIC_TAG
+	DEFAULT_COLOR_TAG
 	AUTO_CLEAN MEMORY_LIMIT_MB MEMORY_REDUCTION_FACTOR
 
 The `ptext.draw` keyword arguments and the `ptext` module-level global variables are described in
@@ -354,17 +358,32 @@ evenly into 90 in floating-point representation. Such values include:
 
 Note: the API for inline styling is under development. This section is subject to change.
 
-	ptext.draw("hello __world__", (100, 100), underlinetag="__")
+	ptext.draw("hello **world**", (100, 100), boldtag="**")
 
 Keyword arguments:
 
 * `underlinetag`: a string indicating the start and end of underlining within text. Defaults to
   `ptext.DEFAULT_UNDERLINE_TAG`, which is `None` by default.
+* `boldtag`: a string indicating the start and end of bolding within text. Defaults to
+  `ptext.DEFAULT_BOLD_TAG`, which is `None` by default.
+* `italictag`: a string indicating the start and end of italicizing within text. Defaults to
+  `ptext.DEFAULT_ITALIC_TAG`, which is `None` by default.
+* `colortag`: a dict mapping strings to colors, indicating where color should change within the
+  text. Defaults to `ptext.DEFAULT_COLOR_TAG`, which is `{}` by default.
 
-This lets you style (i.e. underline) part of the drawn text. If `underlinetag` is `None`, or the
-specified underline tag does not appear in the text, then no inline styling will be applied. If the
-specified underline tag does appear in the text, then it indicates the start and end of the
-styling.
+This lets you style part of the drawn text, by toggling underline, bold, or italic, or by changing
+the color of the text. No inline styling will be applied by default: the tags must be specified
+first. I recommend using the global defaults and picking tags that you're not using for any other
+purpose, e.g.:
+
+	ptext.DEFAULT_UNDERLINE_TAG = "__"
+	ptext.DEFAULT_BOLD_TAG = "**"
+	ptext.DEFAULT_COLOR_TAG = {
+		">>": None,
+		"<<R": "red",
+		"<<B": "blue",
+	}
+	ptext.draw("How about some **bold** text or some <<Rred text>>!", (0, 0))
 
 Inline styling is not yet compatible with certain options. If you use inline styling, you may not
 use text rotation (option `angle`), outlines (option `owidth`), drop shadow (option `shadow`),
