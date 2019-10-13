@@ -11,6 +11,7 @@ from math import ceil, sin, cos, radians, exp
 from collections import namedtuple
 import pygame
 
+# Global default values
 DEFAULT_FONT_SIZE = 24
 REFERENCE_FONT_SIZE = 100
 DEFAULT_LINE_HEIGHT = 1.0
@@ -20,9 +21,11 @@ FONT_NAME_TEMPLATE = "%s"
 DEFAULT_COLOR = "white"
 DEFAULT_BACKGROUND = None
 DEFAULT_SHADE = 0
+DEFAULT_OUTLINE_WIDTH = None
 DEFAULT_OUTLINE_COLOR = "black"
-DEFAULT_SHADOW_COLOR = "black"
 OUTLINE_UNIT = 1 / 24
+DEFAULT_SHADOW_OFFSET = None
+DEFAULT_SHADOW_COLOR = "black"
 SHADOW_UNIT = 1 / 18
 DEFAULT_ALIGN = "left"  # left, center, or right
 DEFAULT_ANCHOR = 0, 0  # 0, 0 = top left ;  1, 1 = bottom right
@@ -40,12 +43,12 @@ MEMORY_REDUCTION_FACTOR = 0.5
 
 pygame.font.init()
 
-# Options objects encapsulate the keyword arguments to functions that take a lot of keyword
+# Options objects encapsulate the keyword arguments to functions that take a lot of optional keyword
 # arguments.
 
 # Options object base class. Subclass for Options objects specific to different functions.
-# Specify valid fields in the _fields list. Unspecified fields default to None, unless otherwise
-# specified in the _defaults list.
+# Specify valid fields in the _fields list. All keyword fields are optional. Unspecified fields
+# default to None, unless otherwise specified in the _defaults list.
 class _Options(object):
 	_fields = ()
 	_defaults = {}
@@ -57,19 +60,24 @@ class _Options(object):
 		for field in fields:
 			value = kwargs[field] if field in kwargs else self._defaults.get(field)
 			setattr(self, field, value)
-	def copy(self):
-		return self.__class__(**{ field: getattr(self, field) for field in self._allfields() })
 	@classmethod
 	def _allfields(cls):
 		return set(cls._fields) | set(cls._defaults)
+	def asdict(self):
+		return { field: getattr(self, field) for field in self._allfields() }
+	def copy(self):
+		return self.__class__(**self.asdict())
 	def keys(self):
 		return self._allfields()
 	def __getitem__(self, field):
 		return getattr(self, field)
 	def update(self, **newkwargs):
-		kwargs = { field: getattr(self, field) for field in self._allfields() }
+		kwargs = self.asdict()
 		kwargs.update(**newkwargs)
 		return self.__class__(**kwargs)
+	# For cached function calls, this is a hashable representation of the options object. Assumes
+	# that all field values are either hashable, or dicts whose keys are comparable and values are
+	# hashable.
 	def key(self):
 		values = []
 		for field in sorted(self._allfields()):
@@ -81,7 +89,20 @@ class _Options(object):
 	def getsuboptions(self, optclass):
 		return { field: getattr(self, field) for field in optclass._allfields() if hasattr(self, field) }
 
+	# The following methods are just put here for code deduplication. A couple different functions
+	# use a lot of the same code.
+	def resolvetags(self):
+		if self.underlinetag is _default_sentinel:
+			self.underlinetag = DEFAULT_UNDERLINE_TAG
+		if self.boldtag is _default_sentinel:
+			self.boldtag = DEFAULT_BOLD_TAG
+		if self.italictag is _default_sentinel:
+			self.italictag = DEFAULT_ITALIC_TAG
+		if self.colortag is _default_sentinel:
+			self.colortag = DEFAULT_COLOR_TAG
 
+# Used as the default value for any argument for which (1) None is a valid value, and (2) there's a
+# global default value.
 _default_sentinel = ()
 
 # Options argument for the draw function. Specifies both text styling and positioning.
@@ -98,6 +119,8 @@ class _DrawOptions(_Options):
 		"surf", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0,
+		"owidth": _default_sentinel,
+		"shadow": _default_sentinel,
 		"underlinetag": _default_sentinel,
 		"boldtag": _default_sentinel,
 		"italictag": _default_sentinel,
@@ -165,17 +188,6 @@ class _LayoutOptions(_DrawOptions):
 		if self.pspace is None: self.pspace = DEFAULT_PARAGRAPH_SPACE
 		self.resolvetags()
 
-	# TODO: this is duplicated in _GetsurfOptions.
-	def resolvetags(self):
-		if self.underlinetag is _default_sentinel:
-			self.underlinetag = DEFAULT_UNDERLINE_TAG
-		if self.boldtag is _default_sentinel:
-			self.boldtag = DEFAULT_BOLD_TAG
-		if self.italictag is _default_sentinel:
-			self.italictag = DEFAULT_ITALIC_TAG
-		if self.colortag is _default_sentinel:
-			self.colortag = DEFAULT_COLOR_TAG
-
 	def towrapoptions(self):
 		return self.getsuboptions(_WrapOptions)
 
@@ -189,9 +201,16 @@ class _DrawboxOptions(_Options):
 		"color", "background",
 		"lineheight", "pspace", "strip", "align",
 		"owidth", "ocolor", "shadow", "scolor", "gcolor", "shade",
+		"underlinetag", "boldtag", "italictag", "colortag",
 		"alpha", "anchor", "angle", "surf", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0, "anchor": (0.5, 0.5),
+		"owidth": _default_sentinel,
+		"shadow": _default_sentinel,
+		"underlinetag": _default_sentinel,
+		"boldtag": _default_sentinel,
+		"italictag": _default_sentinel,
+		"colortag": _default_sentinel,
 		"surf": _default_sentinel, "cache": True }
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
@@ -213,6 +232,8 @@ class _GetsurfOptions(_Options):
 		"underlinetag", "boldtag", "italictag", "colortag", "cache")
 	_defaults = {
 		"antialias": True, "alpha": 1.0, "angle": 0,
+		"owidth": _default_sentinel,
+		"shadow": _default_sentinel,
 		"underlinetag": _default_sentinel,
 		"boldtag": _default_sentinel,
 		"italictag": _default_sentinel,
@@ -236,25 +257,21 @@ class _GetsurfOptions(_Options):
 		if self.shade:
 			self.gcolor = _applyshade(self.gcolor or self.color, self.shade)
 			self.shade = 0
-		self.ocolor = None if self.owidth is None else _resolvecolor(self.ocolor, DEFAULT_OUTLINE_COLOR)
-		self.scolor = None if self.shadow is None else _resolvecolor(self.scolor, DEFAULT_SHADOW_COLOR)
-
-		self._opx = None if self.owidth is None else ceil(self.owidth * self.fontsize * OUTLINE_UNIT)
-		self._spx = None if self.shadow is None else tuple(ceil(s * self.fontsize * SHADOW_UNIT) for s in self.shadow)
+		self.resolveoutlineshadow()
 		self.alpha = _resolvealpha(self.alpha)
 		self.angle = _resolveangle(self.angle)
 		self.strip = DEFAULT_STRIP if self.strip is None else self.strip
 		self.resolvetags()
 
-	def resolvetags(self):
-		if self.underlinetag is _default_sentinel:
-			self.underlinetag = DEFAULT_UNDERLINE_TAG
-		if self.boldtag is _default_sentinel:
-			self.boldtag = DEFAULT_BOLD_TAG
-		if self.italictag is _default_sentinel:
-			self.italictag = DEFAULT_ITALIC_TAG
-		if self.colortag is _default_sentinel:
-			self.colortag = DEFAULT_COLOR_TAG
+	def resolveoutlineshadow(self):
+		if self.owidth is _default_sentinel:
+			self.owidth = DEFAULT_OUTLINE_WIDTH
+		if self.shadow is _default_sentinel:
+			self.shadow = DEFAULT_SHADOW_OFFSET
+		self.ocolor = None if self.owidth is None else _resolvecolor(self.ocolor, DEFAULT_OUTLINE_COLOR)
+		self.scolor = None if self.shadow is None else _resolvecolor(self.scolor, DEFAULT_SHADOW_COLOR)
+		self._opx = None if self.owidth is None else ceil(self.owidth * self.fontsize * OUTLINE_UNIT)
+		self._spx = None if self.shadow is None else tuple(ceil(s * self.fontsize * SHADOW_UNIT) for s in self.shadow)
 
 	def checkinline(self):
 		if self.angle is None or self._opx is not None or self._spx is not None or self.align != 0 or self.gcolor or self.shade:
@@ -281,6 +298,7 @@ class _WrapOptions(_Options):
 
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
+		self.resolvetags()
 		if self.widthem is not None and self.width is not None:
 			raise ValueError("Can't set both width and widthem")
 
@@ -310,7 +328,14 @@ class _GetfontOptions(_Options):
 
 class _FitsizeOptions(_Options):
 	_fields = ("fontname", "sysfontname", "bold", "italic", "underline",
-		"lineheight", "pspace", "strip")
+		"lineheight", "pspace", "strip",
+		"underlinetag", "boldtag", "italictag", "colortag")
+	_defaults = {
+		"underlinetag": _default_sentinel,
+		"boldtag": _default_sentinel,
+		"italictag": _default_sentinel,
+		"colortag": _default_sentinel,
+	}
 
 	def togetfontoptions(self):
 		return self.getsuboptions(_GetfontOptions)
@@ -496,7 +521,7 @@ class TagSpec(namedtuple("TagSpec", ["underline", "bold", "italic", "color"])):
 		return self._replace(color = color)
 
 # Splits a string into substrings with corresponding tag specs.
-# Empty strings are skipped. Consecutive idential tag specs are not merged.
+# Empty strings are skipped. Consecutive identical tag specs are not merged.
 # e.g. if tagspec0.underline = False and underlinetag = "_" then:
 # _splitbytags("_abc__def_ ghi_") yields three items:
 #   ("abc", TagSpec(underline=True))

@@ -23,7 +23,7 @@ already have pygame installed separately.
 	ptext.draw("Color gradient", (540, 170), color="red", gcolor="purple")
 	ptext.draw("Transparency", (700, 240), alpha=0.1)
 	ptext.draw("Vertical text", midleft=(40, 440), angle=90)
-	ptext.draw("Inline _styling_ with tags", (630, 320), underlinetag="_")
+	ptext.draw("_Inline_ [styles]!", (630, 320), underlinetag="_", colortag={"[":"yellow","]":None})
 	ptext.draw("All together now:\nCombining the above options",
 		midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48, underline=True,
 		color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8, angle=5)
@@ -69,8 +69,8 @@ to your desired values:
 	DEFAULT_FONT_NAME DEFAULT_FONT_SIZE FONT_NAME_TEMPLATE
 	DEFAULT_COLOR DEFAULT_BACKGROUND
 	DEFAULT_ALIGN
-	DEFAULT_OUTLINE_COLOR OUTLINE_UNIT
-	DEFAULT_SHADOW_COLOR SHADOW_UNIT
+	DEFAULT_OUTLINE_WIDTH DEFAULT_OUTLINE_COLOR OUTLINE_UNIT
+	DEFAULT_SHADOW_OFFSET DEFAULT_SHADOW_COLOR SHADOW_UNIT
 	DEFAULT_SHADE
 	ALPHA_RESOLUTION
 	DEFAULT_ANCHOR
@@ -241,7 +241,8 @@ generally trust the default alignment, and only specify `align` if something doe
 
 Keyword arguments:
 
-* `owidth`: outline thickness, in outline units. Defaults to `None`.
+* `owidth`: outline thickness, in outline units. Defaults to `ptext.DEFAULT_OUTLINE_WIDTH`, which is
+set to `None` by default.
 * `ocolor`: outline color. Defaults to `ptext.DEFAULT_OUTLINE_COLOR`, which is set to `"black"` by
 default.
 
@@ -254,6 +255,9 @@ As a special case, setting `color` to a transparent value (e.g. `(0,0,0,0)`) whi
 will cause the text to be invisible, giving a hollow outline. (This feature is not compatible with
 `gcolor`.)
 
+Setting `owidth` to `0` is slightly different from setting it to `None`. If `owidth` is `0`, the
+outline will be drawn, but covered over by the main text.
+
 Valid values for `ocolor` are the same as for `color`.
 
 ## Drop shadow
@@ -262,7 +266,8 @@ Valid values for `ocolor` are the same as for `color`.
 
 Keyword arguments:
 
-* `shadow`: (x,y) values representing the drop shadow offset, in shadow units. Defaults to `None`.
+* `shadow`: (x,y) values representing the drop shadow offset, in shadow units. Defaults to
+`ptext.DEFAULT_SHADOW_OFFSET`, which is `None` by default.
 * `scolor`: drop shadow color. Defaults to `ptext.DEFAULT_SHADOW_COLOR`, which is `"black"` by
 default.
 
@@ -273,6 +278,9 @@ example, `shadow=(1.0,1.0)` corresponds to a shadow down and to the right of the
 
 The units of `shadow` are chosen so that `1.0` is a good typical value for the offset. Specifically,
 they're the font size times `ptext.SHADOW_UNIT`, which is set to `1/18` by default.
+
+Setting `shadow` to `(0, 0)` is slightly different from setting it to `None`. If `shadow` is
+`(0, 0)`, the drop shadow will be drawn, but covered over by the main text.
 
 As a special case, setting `color` to a transparent value (e.g. `(0,0,0,0)`) while using drop shadow
 will cause the text to be invisible, giving a hollow shadow. (This feature is not compatible with

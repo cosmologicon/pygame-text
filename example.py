@@ -24,7 +24,7 @@ buttoncosts = [10, 400, 12000, 250000]
 
 # Pre-draw the title, using a gradient.
 titleargs = ptext.draw("Clooky Clunker", midtop=(sx/2, 10), fontname="CherryCreamSoda", fontsize=64,
-	owidth=1.2, color="0x884400", gcolor="0x442200", surf=None, cache=False)
+	owidth=1.2, color="0x884400", shade=1, surf=None, cache=False)
 
 playing = True
 clock = pygame.time.Clock()
@@ -110,6 +110,6 @@ while playing:
 	if t - tgoal < 2:
 		alpha = min(2 - (t - tgoal), 1)
 		ptext.draw(goaltext, fontname="Boogaloo", fontsize=48, bottom=sy-20, right=sx-40,
-			color="#AAAAFF", gcolor="#4444AA", shadow=(1.5,1.5), alpha=alpha, align="center")
+			color="#AAAAFF", shade=1, shadow=(1.5,1.5), alpha=alpha, align="center")
 	pygame.display.flip()
 

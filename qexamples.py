@@ -15,7 +15,7 @@ ptext.draw("Drop shadow", (640, 110), shadow=(2,2), scolor="#202020")
 ptext.draw("Color gradient", (540, 170), color="red", gcolor="purple")
 ptext.draw("Transparency", (700, 240), alpha=0.1)
 ptext.draw("Vertical text", midleft=(40, 440), angle=90)
-ptext.draw("Inline _styling_ with *tags!*", (630, 320), underlinetag="_", boldtag="*")
+ptext.draw("_Inline_ [styles]!", (630, 320), underlinetag="_", colortag={"[":"yellow","]":None})
 ptext.draw("All together now:\nCombining the above options",
     midbottom=(427,460), width=360, fontname="fonts/Boogaloo.ttf", fontsize=48, underline=True,
     color="#AAFF00", gcolor="#66AA00", owidth=1.5, ocolor="black", alpha=0.8, angle=5)
