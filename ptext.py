@@ -387,14 +387,11 @@ def _fitsize(text, size, **kwargs):
 	width, height = size
 	def fits(fontsize):
 		opts = options.copy()
-		spans = _wrap(text, fontsize=fontsize, width=width, **opts.towrapoptions())
 		wmax, hmax = 0, 0
-		for tpiece, tagspec, x, jpara, jline, linewidth in spans:
-			tagspec.updateoptions(opts)
-			font = getfont(fontsize=fontsize, **opts.togetfontoptions())
-			y = font.get_linesize() * (opts.pspace * jpara + opts.lineheight * jline)
-			w, h = font.size(tpiece)
-			wmax = max(wmax, x + w)
+		for span in _wrap(text, fontsize=fontsize, width=width, **opts.towrapoptions()):
+			y = span.font.get_linesize() * (opts.pspace * span.jpara + opts.lineheight * span.jline)
+			w, h = span.font.size(span.text)
+			wmax = max(wmax, span.right)
 			hmax = max(hmax, y + h)
 		return wmax <= width and hmax <= height
 	fontsize = _binarysearch(fits)
@@ -553,15 +550,66 @@ def _splitbytags(text, tagspec0, color0, underlinetag, boldtag, italictag, color
 	if text:
 		yield text, tagspec
 
+# The _Span class tracks many attributes of a single span of text, i.e. a string of text within a
+# single line that has a single font and TagSpec. That is, a single span corresponds to a single
+# call to font.render.
+# This is not a clean abstraction, and some of the state of this object only makes sense in the
+# context of the overall draw call. At various stages of the call, some of the fields will not yet
+# be populated.
+class _Span:
+	# Phase 1: set by _wrapline
+	def __init__(self, text, tagspec, x, font):
+		self.tagspec = tagspec
+		self.x = x  # Offset from the beginning of the line
+		self.font = font
+		self.settext(text)
+	# Phase 2: set by _wrap
+	def setlayout(self, jpara, jline, linewidth):
+		self.jpara = jpara
+		self.jline = jline
+		self.linewidth = linewidth
+	# Phase 3: set by getsurf
+	# These are not required to determine layout or position, only for rendering.
+	def setdetails(self, antialias, gcolor, background):
+		self.antialias = antialias
+		self.gcolor = gcolor
+		self.background = background
+
+	def settext(self, text):
+		self.text = text
+		self.width = self.getwidth(self.text)
+		self.right = self.x + self.width
+
+	def getwidth(self, text):
+		return self.font.size(text)[0]
+
+	def render(self):
+		if self.gcolor is None:
+			# Workaround: pygame.Font.render does not allow passing None as an argument value for
+			# background. We have to call the 3-argument form to specify no background.
+			args = self.text, self.antialias, self.tagspec.color
+			if self.background is not None and not _istransparent(self.background):
+				args += (self.background,)
+			self.surf = self.font.render(*args).convert_alpha()
+		else:
+			self.surf = self.font.render(self.text, self.antialias, (0, 0, 0)).convert_alpha()
+			w, h = self.surf.get_size()
+			asc = self.font.get_ascent()
+			gsurf0 = _gradsurf(h, 0.5 * asc, asc, self.tagspec.color, self.gcolor)
+			gsurf = pygame.transform.scale(gsurf0, (w, h))
+			self.surf.blit(gsurf, (0, 0), None, pygame.BLEND_RGBA_ADD)
+
+
+
 # A breakpoint is a space character that immediately follows a non-space character, or one past the
 # end of the line, if the line ends in a non-space character. (If canbreakatstart is True, then
 # there is also a breakpoint at the beginning of the line.)
-# A valid breakpoint is one such that getwidth(text[:a]) is not greater than width. Exception: the
+# A valid breakpoint is one such that font.width(text[:a]) is not greater than width. Exception: the
 # first breakpoint in a line is always valid.
 # This function returns the index of the last valid breakpoint.
-def _getbreakpoint(text, width, getwidth, canbreakatstart = False):
+def _getbreakpoint(text, width, font, canbreakatstart = False):
 	def isvalid(breakpoint):
-		return getwidth(text[:breakpoint]) <= width
+		return font.size(text[:breakpoint])[0] <= width
 	# At any point, a is the index of a known valid break point. b is a candidate breakpoint, and c
 	# is the rightmost breakpoint.
 	c = len(text.rstrip(" "))
@@ -591,17 +639,17 @@ def _getbreakpoint(text, width, getwidth, canbreakatstart = False):
 
 # Split a single line of text.
 # textandtags is the output of _splitbytags, i.e. a sequence of (string, tag spec) tuples.
-def _wrapline(textandtags, width, getwidthbytagspec):
+def _wrapline(textandtags, width, getfontbytagspec):
 	x = 0
 	canbreakatstart = False
 	lines = []
 	line = []
 	for text, tagspec in textandtags:
-		getwidth = getwidthbytagspec(tagspec)
+		font = getfontbytagspec(tagspec)
 		while text:
 			# TODO: options.split
 			rwidth = None if width is None else width - x
-			a = _getbreakpoint(text, rwidth, getwidth, canbreakatstart)
+			a = _getbreakpoint(text, rwidth, font, canbreakatstart)
 			while a < len(text) and text[a] == " ":
 				a += 1
 			if a == 0:
@@ -610,8 +658,9 @@ def _wrapline(textandtags, width, getwidthbytagspec):
 				x = 0
 				canbreakatstart = False
 			else:
-				line.append((text[:a], tagspec, x))
-				x += getwidth(text[:a])
+				span = _Span(text[:a], tagspec, x, font)
+				line.append(span)
+				x += span.width
 				text = text[a:]
 				canbreakatstart = True
 	lines.append((line, x))
@@ -621,10 +670,9 @@ def _wrap(text, **kwargs):
 	options = _WrapOptions(**kwargs)
 	# Returns a function mapping strings to int widths in the specified font
 	opts = options.copy()
-	def getwidthbytagspec(tagspec):
+	def getfontbytagspec(tagspec):
 		tagspec.updateoptions(opts)
-		font = getfont(**opts.togetfontoptions())
-		return lambda text: font.size(text)[0]
+		return getfont(**opts.togetfontoptions())
 	# Apparently Font.render accepts None for the text argument, in which case it's treated as the
 	# empty string. We match that behavior here.
 	if text is None: text = ""
@@ -637,22 +685,21 @@ def _wrap(text, **kwargs):
 		tagargs = options.underlinetag, options.boldtag, options.italictag, options.colortag
 		textandtags = list(_splitbytags(para, tagspec0, options.color, *tagargs))
 		_, tagspec0 = textandtags[-1]
-		for line, linewidth in _wrapline(textandtags, options.width, getwidthbytagspec):
+		for line, linewidth in _wrapline(textandtags, options.width, getfontbytagspec):
 			if not line:
 				jline += 1
 				continue
 			# Strip trailing spaces from the end of each line.
-			tpiece, tagspec, x = line.pop(-1)
-			getwidth = getwidthbytagspec(tagspec)
+			span = line[-1]
 			if options.strip:
-				tpiece = tpiece.rstrip(" ")
+				span.settext(span.text.rstrip(" "))
 			elif options.width is not None:
-				while tpiece[-1] == " " and x + getwidth(tpiece) > options.width:
-					tpiece = tpiece[:-1]
-			line.append((tpiece, tagspec, x))
-			linewidth = x + getwidth(tpiece)
-			for tpiece, tagspec, x in line:
-				spans.append((tpiece, tagspec, x, jpara, jline, linewidth))
+				while span.text[-1] == " " and span.right > options.width:
+					span.settext(span.text[:-1])
+			linewidth = span.right
+			for span in line:
+				span.setlayout(jpara, jline, linewidth)
+				spans.append(span)
 			jline += 1
 	return spans
 
@@ -675,6 +722,9 @@ def getsurf(text, **kwargs):
 	if options.angle:
 		surf0 = getsurf(text, **options.update(angle = 0))
 		surf = _rotatesurf(surf0, options.angle)
+		# draw() requires the unrotated size for proper positioning, but the unrotated surface will
+		# not necessarily be cached, so we add it to a global store here. In principle you could
+		# compute it from surf.get_size() and options.angle, were it not for rounding issues.
 		_unrotated_size[(surf.get_size(), options.angle, text)] = surf0.get_size()
 	elif options.alpha < 1.0:
 		surf = _fadesurf(getsurf(text, **options.update(alpha = 1.0)), options.alpha)
@@ -724,47 +774,32 @@ def getsurf(text, **kwargs):
 		else:
 			surf.blit(surf0, (opx, opx))
 	else:
-		# A span is a section of text with a consistent styling within a single line. Each span is
-		# rendered separately into a Surface, and then the different spans' Surfaces are blitted
-		# onto the final Surface.
+		# Each span is rendered separately into a Surface, and then the different spans' Surfaces
+		# are blitted onto the final Surface.
 		spans = _wrap(text, **options.towrapoptions())
-		spansurfs = []
-		opts = options.copy()
-		for tpiece, tagspec, x, jpara, jline, linewidth in spans:
-			tagspec.updateoptions(opts)
-			font = getfont(**opts.togetfontoptions())
-			color = opts.color
-			if opts.gcolor is None:
-				# Workaround: pygame.Font.render does not allow passing None as an argument value for
-				# background. We have to call the 3-argument form to specify no background.
-				args = tpiece, opts.antialias, color
-				if opts.background is not None and not _istransparent(opts.background):
-					args += (opts.background,)
-				spansurf = font.render(*args).convert_alpha()
-			else:
-				spansurf = font.render(tpiece, opts.antialias, (0, 0, 0)).convert_alpha()
-				gsurf0 = _gradsurf(spansurf.get_height(), 0.5 * font.get_ascent(), font.get_ascent(), opts.color, opts.gcolor)
-				gsurf = pygame.transform.scale(gsurf0, spansurf.get_size())
-				spansurf.blit(gsurf, (0, 0), None, pygame.BLEND_RGBA_ADD)
-			spansurfs.append(spansurf)
+		for span in spans:
+			span.setdetails(options.antialias, options.gcolor, options.background)
+			span.render()
 		# Now to blit the span Surfaces together onto a single Surface. As an optimization, when
 		# there is only one span Surface, just use that. (We can't use this optimization if there's
 		# a gradient color, because the background color still needs to be applied.)
-		if not spansurfs:
+		if not spans:
 			surf = pygame.Surface((0, 0)).convert_alpha()
-		elif len(spansurfs) == 1 and opts.gcolor is None:
-			surf = spansurfs[0]
+		elif len(spans) == 1 and options.gcolor is None:
+			surf = spans[0].surf
 		else:
-			w = max(linewidth for _, _, _, _, _, linewidth in spans)
-			linesize = font.get_linesize() * opts.lineheight
-			parasize = font.get_linesize() * opts.pspace
-			ys = [int(round(jline * linesize + jpara * parasize)) for _, _, _, jpara, jline, _ in spans]
-			h = max(ys) + font.get_height()
+			font = spans[0].font
+			w = max(span.linewidth for span in spans)
+			linesize = font.get_linesize() * options.lineheight
+			parasize = font.get_linesize() * options.pspace
+			for span in spans:
+				span.y = int(round(span.jline * linesize + span.jpara * parasize))
+			h = max(span.y for span in spans) + font.get_height()
 			surf = pygame.Surface((w, h)).convert_alpha()
 			surf.fill(options.background or (0, 0, 0, 0))
-			for (_, _, x0, _, _, linewidth), spansurf, y in zip(spans, spansurfs, ys):
-				x = int(round(x0 + opts.align * (w - linewidth)))
-				surf.blit(spansurf, (x, y))
+			for span in spans:
+				x = int(round(span.x + options.align * (w - span.linewidth)))
+				surf.blit(span.surf, (x, span.y))
 	if options.cache:
 		w, h = surf.get_size()
 		_surf_size_total += 4 * w * h
