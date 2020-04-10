@@ -843,14 +843,13 @@ def layout(text, **kwargs):
 
 	rects = []
 	fonts = []
-	sw = max(linewidth for _, _, _, _, _, linewidth in spans)
-	for tpiece, tagspec, x, jpara, jline, linewidth in spans:
-		y = int(round(jpara * parasize + jline * linesize))
-		rect = pygame.Rect(x, y, *font.size(tpiece))
-		rect.x += int(round(options.align * (sw - linewidth)))
+	sw = max(span.linewidth for span in spans)
+#	for tpiece, tagspec, x, jpara, jline, linewidth in spans:
+	for span in spans:
+		y = int(round(span.jpara * parasize + span.jline * linesize))
+		rect = pygame.Rect(span.x, y, *font.size(span.text))
+		rect.x += int(round(options.align * (sw - span.linewidth)))
 		rects.append(rect)
-		tagspec.updateoptions(options)
-		fonts.append(getfont(**options.togetfontoptions()))
 	sh = max(rect.bottom for rect in rects)
 
 	x0, y0 = _blitpos(options.angle, options.pos, options.anchor, (sw, sh), None)
@@ -866,7 +865,7 @@ def layout(text, **kwargs):
 		dx, dy = max(dx, -spx), max(dy, -spy)
 	rects = [rect.move(x0 + dx, y0 + dy) for rect in rects]
 
-	return [(text, rect, font) for (text, _, _, _, _, _), rect, font in zip(spans, rects, fonts)]
+	return [(span.text, rect, span.font) for span, rect in zip(spans, rects)]
 
 
 def draw(text, pos=None, **kwargs):
