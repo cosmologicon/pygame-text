@@ -177,7 +177,7 @@ If the position is overspecified (e.g. both `left` and `right` are given), then 
 will be (arbitrarily but deterministically) discarded. For constrained text, see the section on
 `ptext.drawbox` below.
 
-## Word wrap and line spacing
+## Word wrap
 
     ptext.draw("splitting\nlines", (100, 100))
     ptext.draw("splitting lines", (100, 100), width=60)
@@ -199,12 +199,9 @@ text is not guaranteed to be within the given width, because wrapping only occur
 characters, so if a single word is too long to fit on a line, it will not be broken up. Outline and
 drop shadow are also not accounted for, so they may extend beyond the given width.
 
-You can prevent wrapping on a particular space with non-breaking space characters (`\u00A0`).
+The rules for where line breaks occur 
 
-Vertical positioning of each line depends on the values of `lineheight` and `pspace`. `pspace` is
-only applied for explicit line breaks (i.e. at newline characters), whereas `lineheight` is applied
-for both explicit line breaks, and line breaks due to word wrap. Increasing these values will spread
-lines apart more vertically.
+You can prevent wrapping on a particular space with non-breaking space characters (`\u00A0`).
 
 The `strip` keyword determines how space characters are handled, for the purpose of word wrap. If
 `strip` is set to `True` (the default), then trailing spaces will be stripped from all lines. Space
@@ -217,6 +214,22 @@ of lines if this would cause them to overrun the specified width. Setting `strip
 text that is not left-aligned may produce surprising results. Also, for left-aligned text, this
 option is essentially meaningless if `background` is set to `None`, since trailing spaces are
 invisible.
+
+## Line spacing
+
+    ptext.draw("double\nspace", (100, 100), lineheight=2)
+
+Keyword arguments:
+
+* `lineheight`: vertical spacing between lines, in units of the font's default line height. Defaults
+to `ptext.DEFAULT_LINE_HEIGHT`, which defaults to `1`.
+* `pspace`: additional vertical spacing between paragraphs, in units of the font's default line
+height. Defaults to `ptext.DEFAULT_PARAGRAPH_SPACE`, which defaults to `0`.
+
+Vertical positioning of each line depends on the values of `lineheight` and `pspace`. `pspace` is
+only applied for explicit line breaks (i.e. at newline characters), whereas `lineheight` is applied
+for both explicit line breaks, and line breaks due to word wrap. Increasing these values will spread
+lines apart more vertically.
 
 ## Text alignment
 
