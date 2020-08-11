@@ -1,5 +1,3 @@
-# Using ptext.layout to get the word that the mouse is pointing at.
-
 import pygame
 import ptext
 
@@ -9,14 +7,17 @@ screen = pygame.display.set_mode((854, 480))
 
 text0 = (
 	"alfa bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike "
-	"november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu"
+#	"november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu"
 )
 text = "\n".join([
 	text0,
+	# Soft hyphens between each letter: allow hyphenation anywhere.
 	" ".join("\u00AD".join(word) for word in text0.split()),
+	# Zero-width spaces.
+	"\u200B".join(text0.split()),
 ])
 
-fontsizes = 10, 20, 30, 50
+fontsizes = 10, 12, 15, 18, 20, 22, 25, 27, 30, 33
 fontnames = "Boogaloo", "Bubblegum_Sans", "CherryCreamSoda", "Roboto_Condensed"
 outlines = 0, 2, 12
 shadows = None, (5, 5), (-5, 5), (-5, -5), (5, -5)
