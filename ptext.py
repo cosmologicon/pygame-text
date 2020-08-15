@@ -626,6 +626,9 @@ def _breaktext(text, width, font, canbreakatstart = False):
 		# Non-breaking space. No breakpoint here. Instead just add a space.
 		elif c == "\u00A0":
 			c = " "
+		# Non-breaking hyphen. No breakpoint here. Instead just add a hyphen.
+		elif c == "\u2011":
+			c = "-"
 		# Zero-width space. Allow a breakpoint but don't add anything (i.e. remove this character)
 		elif c == "\u200B":
 			atbreak = True
@@ -663,10 +666,9 @@ def _wrapline(textandtags, width, getfontbytagspec):
 	for text, tagspec in textandtags:
 		font = getfontbytagspec(tagspec)
 		while text:
-			# TODO: options.split
 			rwidth = None if width is None else width - x
-			btext, a = _breaktext(text, rwidth, font, canbreakatstart)
-			if a == 0:
+			btext, b = _breaktext(text, rwidth, font, canbreakatstart)
+			if b == 0:
 				lines.append((line, x))
 				line = []
 				x = 0
@@ -675,7 +677,7 @@ def _wrapline(textandtags, width, getfontbytagspec):
 				span = _Span(btext, tagspec, x, font)
 				line.append(span)
 				x += span.width
-				text = text[a:]
+				text = text[b:]
 				canbreakatstart = True
 	lines.append((line, x))
 	return lines

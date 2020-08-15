@@ -17,7 +17,7 @@ already have pygame installed separately.
 	ptext.draw("Font name and size", (20, 100), fontname="fonts/Boogaloo.ttf", fontsize=60)
 	ptext.draw("Font decoration", (300, 180), sysfontname="freesans", italic=True, underline=True)
 	ptext.draw("Positioned text", topright=(840, 20))
-	ptext.draw("Allow me to demonstrate wrapped text.", (90, 210), width=180, lineheight=1.5)
+	ptext.draw("Here's some neatly-wrapped text.", (90, 210), width=120, lineheight=1.5)
 	ptext.draw("Outlined text", (400, 70), owidth=1.5, ocolor=(255,255,0), color=(0,0,0))
 	ptext.draw("Drop shadow", (640, 110), shadow=(2,2), scolor="#202020")
 	ptext.draw("Color gradient", (540, 170), color="red", gcolor="purple")
@@ -177,7 +177,7 @@ If the position is overspecified (e.g. both `left` and `right` are given), then 
 will be (arbitrarily but deterministically) discarded. For constrained text, see the section on
 `ptext.drawbox` below.
 
-## Word wrap
+## Text width
 
     ptext.draw("splitting\nlines", (100, 100))
     ptext.draw("splitting lines", (100, 100), width=60)
@@ -186,34 +186,12 @@ Keyword arguments:
 
 * `width`: maximum width of the text to draw, in pixels. Defaults to `None`.
 * `widthem`: maximum width of the text to draw, in font-based em units. Defaults to `None`.
-* `lineheight`: vertical spacing between lines, in units of the font's default line height. Defaults
-to `ptext.DEFAULT_LINE_HEIGHT`, which defaults to `1`.
-* `pspace`: additional vertical spacing between paragraphs, in units of the font's default line
-height. Defaults to `ptext.DEFAULT_PARAGRAPH_SPACE`, which defaults to `0`.
-* `strip`: boolean controlling the handling of trailing spaces and linebreaks. Defaults to
-`ptext.DEFAULT_STRIP`, which is set to `True` by default.
 
 `ptext.draw` will always wrap lines at newline (`\n`) characters. If `width` or `widthem` is
-set, it will also try to wrap lines in order to keep each line shorter than the given width. The
-text is not guaranteed to be within the given width, because wrapping only occurs at space
-characters, so if a single word is too long to fit on a line, it will not be broken up. Outline and
-drop shadow are also not accounted for, so they may extend beyond the given width.
+set, it will also try to wrap lines in order to keep each line shorter than the given width.
 
-The rules for where line breaks occur 
-
-You can prevent wrapping on a particular space with non-breaking space characters (`\u00A0`).
-
-The `strip` keyword determines how space characters are handled, for the purpose of word wrap. If
-`strip` is set to `True` (the default), then trailing spaces will be stripped from all lines. Space
-characters that occur at a linebreak will not be printed, on either of the two lines, and they will
-not contribute to the length of the line in accounting for width. Leading spaces (i.e. spaces that
-occur at the beginning of the string, or immediately after `"\n"`, will be preserved.
-
-If `strip` is set to `False`, then trailing space characters will be only be stripped from the ends
-of lines if this would cause them to overrun the specified width. Setting `strip` to `False` for
-text that is not left-aligned may produce surprising results. Also, for left-aligned text, this
-option is essentially meaningless if `background` is set to `None`, since trailing spaces are
-invisible.
+For a detailed description of how line breaks work, and how to use hyphenation, see the Word Wrap
+section below.
 
 ## Line spacing
 
@@ -374,6 +352,55 @@ for more fine-grained control over rotation. It's recommended you set it only to
 evenly into 90 in floating-point representation. Such values include:
 
 	0.25 0.5 0.75 1 1.25 1.5 2 2.25 2.5 3 3.75 4.5 5 6 7.5 9 10 15 18 30
+
+## Word wrap
+
+Keyword arguments:
+
+* `strip`: boolean controlling the handling of trailing spaces at line breaks. Defaults to
+`ptext.DEFAULT_STRIP`, which is set to `True` by default.
+
+Here's the details of how word wrap works. When the `width` or `widthem` keyword argument is given,
+`ptext.draw` will insert line breaks in order to fit the text within the given width. The text is
+not guaranteed to be within the width, because wrapping only occurs at certain characters, so for
+instance if a single word is too long to fit on a line, it will not be broken up. Outline and drop
+shadow are also not accounted for, so they may extend beyond the given width.
+
+Generally, wrap will occur at the rightmost allowed point that doesn't overrun the given width.
+For the purpose of word wrap, `ptext.draw` treats the following characters specially:
+
+* `"\n"` (newline): a line break is inserted. The `"\n"` character is not printed.
+* `" "` (space): a line break may be inserted at each space character. Trailing spaces at the end of
+  each line are not printed (unless `strip` is set to `False`: see below). Trailing spaces are
+  ignored when determining whether a string of text fits within the width. No matter how many
+  spaces are in a row, the following line will begin with the next non-space character.
+* `"-"` (hyphen): a line break may be inserted after each hyphen character.
+* `"\u00A0"` (non-breaking space): do not allow a line break here. In the output, a regular space
+  (`" "`) is printed instead of the non-breaking space.
+* `"\u2011"` (non-breaking hyphen): do not allow a line break here. In the output, a regular hyphen
+  (`"-"`) is printed instead of the non-breaking hyphen.
+* `"\u200B"` (zero-width space): a line break may be inserted here. In any event, this character is
+  not printed.
+* `"\u00AD"` (soft hyphen): a line break may be inserted here. If that happens, a hyphen (`"-"`)
+  will be added to the end of the line.
+
+To achieve book or newspaper style hyphenation, where a hyphen may be inserted after each syllable
+in a word, preprocess your text before passing it to `ptext.draw` to insert soft hyphens between
+syllables, e.g.:
+
+    "Hyphenate this!" => "Hy\u00ADphen\u00ADate this!"
+
+The `strip` keyword determines how trailing space characters are handled. If `strip` is set to
+`True` (the default), then trailing spaces will be stripped from all lines. Space characters that
+occur at a linebreak will not be printed, on either of the two lines, and they will not contribute
+to the length of the line in accounting for width. Leading spaces (i.e. spaces that occur at the
+beginning of the string, or immediately after `"\n"`), will be preserved.
+
+If `strip` is set to `False`, then trailing space characters will be only be stripped from the ends
+of lines if this would cause them to overrun the specified width. Setting `strip` to `False` for
+text that is not left-aligned may produce surprising results. Also, for left-aligned text, this
+option is essentially meaningless if `background` is set to `None`, since trailing spaces are
+invisible.
 
 ## Inline styling (experimental)
 
