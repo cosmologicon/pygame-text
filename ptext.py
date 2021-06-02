@@ -17,6 +17,7 @@ REFERENCE_FONT_SIZE = 100
 DEFAULT_LINE_HEIGHT = 1.0
 DEFAULT_PARAGRAPH_SPACE = 0.0
 DEFAULT_FONT_NAME = None
+DEFAULT_SYSFONT_NAME = None
 FONT_NAME_TEMPLATE = "%s"
 DEFAULT_COLOR = "white"
 DEFAULT_BACKGROUND = None
@@ -118,6 +119,8 @@ class _DrawOptions(_Options):
 		"underlinetag", "boldtag", "italictag", "colortag",
 		"surf", "cache")
 	_defaults = {
+		"fontname": _default_sentinel,
+		"sysfontname": _default_sentinel,
 		"antialias": True, "alpha": 1.0, "angle": 0,
 		"owidth": _default_sentinel,
 		"shadow": _default_sentinel,
@@ -204,6 +207,8 @@ class _DrawboxOptions(_Options):
 		"underlinetag", "boldtag", "italictag", "colortag",
 		"alpha", "anchor", "angle", "surf", "cache")
 	_defaults = {
+		"fontname": _default_sentinel,
+		"sysfontname": _default_sentinel,
 		"antialias": True, "alpha": 1.0, "angle": 0, "anchor": (0.5, 0.5),
 		"owidth": _default_sentinel,
 		"shadow": _default_sentinel,
@@ -214,7 +219,8 @@ class _DrawboxOptions(_Options):
 		"surf": _default_sentinel, "cache": True }
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
-		if self.fontname is None: self.fontname = DEFAULT_FONT_NAME
+		if self.fontname is _default_sentinel: self.fontname = DEFAULT_FONT_NAME
+		if self.sysfontname is _default_sentinel: self.sysfontname = DEFAULT_SYSFONT_NAME
 		if self.lineheight is None: self.lineheight = DEFAULT_LINE_HEIGHT
 		if self.pspace is None: self.pspace = DEFAULT_PARAGRAPH_SPACE
 
@@ -231,6 +237,8 @@ class _GetsurfOptions(_Options):
 		"shadow", "gcolor", "shade", "alpha", "align", "lineheight", "pspace", "angle",
 		"underlinetag", "boldtag", "italictag", "colortag", "cache")
 	_defaults = {
+		"fontname": _default_sentinel,
+		"sysfontname": _default_sentinel,
 		"antialias": True, "alpha": 1.0, "angle": 0,
 		"owidth": _default_sentinel,
 		"shadow": _default_sentinel,
@@ -242,7 +250,8 @@ class _GetsurfOptions(_Options):
 
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
-		if self.fontname is None: self.fontname = DEFAULT_FONT_NAME
+		if self.fontname is _default_sentinel: self.fontname = DEFAULT_FONT_NAME
+		if self.sysfontname is _default_sentinel: self.sysfontname = DEFAULT_SYSFONT_NAME
 		if self.fontsize is None: self.fontsize = DEFAULT_FONT_SIZE
 		self.fontsize = int(round(self.fontsize))
 		if self.align is None: self.align = DEFAULT_ALIGN
@@ -315,12 +324,16 @@ class _WrapOptions(_Options):
 	
 class _GetfontOptions(_Options):
 	_fields = ("fontname", "fontsize", "sysfontname", "bold", "italic", "underline")
+	_defaults = {
+		"fontname": _default_sentinel,
+		"sysfontname": _default_sentinel,
+	}
 	def __init__(self, **kwargs):
 		_Options.__init__(self, **kwargs)
+		if self.fontname is _default_sentinel: self.fontname = DEFAULT_FONT_NAME
+		if self.sysfontname is _default_sentinel: self.sysfontname = DEFAULT_SYSFONT_NAME
 		if self.fontname is not None and self.sysfontname is not None:
 			raise ValueError("Can't set both fontname and sysfontname")
-		if self.fontname is None and self.sysfontname is None:
-			fontname = DEFAULT_FONT_NAME
 		if self.fontsize is None:
 			self.fontsize = DEFAULT_FONT_SIZE
 	def getfontpath(self):

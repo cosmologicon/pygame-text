@@ -8,7 +8,8 @@ text = "yellowjQW"
 screen = pygame.display.set_mode((600, 1000))
 screen.fill((20, 20, 20))
 pygame.font.init()
-fonts = [pygame.font.Font("fonts/" + fontname, fontsize) for fontname in sorted(os.listdir("fonts"))]
+fonts = [pygame.font.Font("fonts/" + fontname, fontsize)
+	for fontname in sorted(os.listdir("fonts")) if fontname.endswith(".ttf")]
 
 for j, font in enumerate(fonts):
 	x0, y0 = 40, 40 + int(1.5 * j * fontsize)
@@ -31,9 +32,9 @@ for j, font in enumerate(fonts):
 #	drawline((0, 0, 255), height + descent)
 #	drawline((0, 255, 0), linesize)
 	surf = font.render(text, True, (255, 255, 255), (128, 128, 128)).convert_alpha()
-	array = pygame.surfarray.pixels_alpha(surf)
-	array *= 0.6
-	del array
+	amask = surf.copy()
+	amask.fill((255, 255, 255, 153))
+	surf.blit(amask, (0, 0), None, pygame.BLEND_RGBA_MULT)
 	screen.blit(surf, (x0, y0))
 	
 pygame.display.flip()

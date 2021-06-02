@@ -66,7 +66,7 @@ use the positioning keyword arguments (described later).
 The `ptext` module also has module-level globals that control the default behavior. These can be set
 to your desired values:
 
-	DEFAULT_FONT_NAME DEFAULT_FONT_SIZE FONT_NAME_TEMPLATE
+	DEFAULT_FONT_NAME DEFAULT_SYSFONT_NAME DEFAULT_FONT_SIZE FONT_NAME_TEMPLATE
 	DEFAULT_COLOR DEFAULT_BACKGROUND
 	DEFAULT_ALIGN
 	DEFAULT_OUTLINE_WIDTH DEFAULT_OUTLINE_COLOR OUTLINE_UNIT
@@ -98,7 +98,8 @@ Keyword arguments:
 
 * `fontname`: filename of the font to draw. Defaults to `ptext.DEFAULT_FONT_NAME`, which is set to
 `None` by default.
-* `sysfontname`: name of the system font to draw. Defaults to `None`.
+* `sysfontname`: name of the system font to draw. Defaults to `ptext.DEFAULT_SYSFONT_NAME`, which is
+set to `None` by default.
 * `fontsize`: size of the font to use, in pixels. Defaults to `ptext.DEFAULT_FONT_SIZE`, which is
 set to `24` by default.
 * `antialias`: whether to render with antialiasing. Defaults to `True`.
